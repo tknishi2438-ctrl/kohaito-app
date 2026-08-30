@@ -1,16 +1,16 @@
 // 計算ロジックのテスト。Python 版 tests/test_models.py・test_repository.py の移植。
 
-import { describe, it, expect } from './runner.js?v=202608302253';
+import { describe, it, expect } from './runner.js?v=202608302257';
 import {
   aggregate, computePosition, dividendMonths, evaluate, LedgerError,
-} from '../js/lib/models.js?v=202608302253';
+} from '../js/lib/models.js?v=202608302257';
 import {
   evaluateDefensive, evaluateSectors, evaluateStockDividends, headroom,
-} from '../js/lib/rules.js?v=202608302253';
-import { Store } from '../js/lib/store.js?v=202608302253';
-import { fromBase64, toBase64 } from '../js/lib/github.js?v=202608302253';
-import { date as formatDate, normalizeMonth } from '../js/lib/format.js?v=202608302253';
-import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202608302253';
+} from '../js/lib/rules.js?v=202608302257';
+import { Store } from '../js/lib/store.js?v=202608302257';
+import { fromBase64, toBase64 } from '../js/lib/github.js?v=202608302257';
+import { date as formatDate, normalizeMonth } from '../js/lib/format.js?v=202608302257';
+import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202608302257';
 
 const tx = (id, type, date, extra = {}) => ({ id, type, trade_date: date, ...extra });
 
@@ -652,71 +652,92 @@ describe('取引月の保存', () => {
 // ------------------------------------------------- ディフェンシブ株の比率
 
 describe('ディフェンシブ株の下限', () => {
-  const rows = (dCost, kCost) => [
-    { label: 'D', cost: dCost, dividend: dCost * 0.04, count: 3, share_pct: 0, yield_pct: 4 },
-    { label: 'K', cost: kCost, dividend: kCost * 0.05, count: 5, share_pct: 0, yield_pct: 5 },
+  // 利回りは D=4%、K=5% として、配当から投資額を逆算できるようにする
+  const rows = (dDiv, kDiv) => [
+    { label: 'D', cost: dDiv / 0.04, dividend: dDiv, count: 3, share_pct: 0, yield_pct: 4 },
+    { label: 'K', cost: kDiv / 0.05, dividend: kDiv, count: 5, share_pct: 0, yield_pct: 5 },
   ];
 
   it('下限を満たしていれば適合', () => {
-    const r = evaluateDefensive(rows(60000, 40000), 50);
+    const r = evaluateDefensive(rows(600, 400), 50);
     expect(r.passing).toBe(true);
     expect(r.defensive_share_pct).toBe(60);
   });
 
   it('下限を割っていれば不足', () => {
-    const r = evaluateDefensive(rows(40000, 60000), 50);
+    const r = evaluateDefensive(rows(400, 600), 50);
     expect(r.passing).toBe(false);
     expect(r.defensive_share_pct).toBe(40);
   });
 
-  it('不足額を足すとちょうど下限になる', () => {
-    const r = evaluateDefensive(rows(40000, 60000), 50);
-    const after = ((40000 + r.shortfall) / (100000 + r.shortfall)) * 100;
+  it('判定は投資額ではなく配当額で行う', () => {
+    // 投資額は D=15,000 / K=8,000 で D が多いが、配当では D が少数派
+    const r = evaluateDefensive([
+      { label: 'D', cost: 15000, dividend: 300, count: 3, share_pct: 65, yield_pct: 2 },
+      { label: 'K', cost: 8000, dividend: 700, count: 5, share_pct: 35, yield_pct: 8.75 },
+    ], 50);
+    expect(r.defensive_share_pct).toBe(30);
+    expect(r.passing).toBe(false);
+  });
+
+  it('不足分を足すとちょうど下限になる', () => {
+    const r = evaluateDefensive(rows(400, 600), 50);
+    const after = ((400 + r.shortfall) / (1000 + r.shortfall)) * 100;
     expect(after).toBeCloseTo(50, 4);
   });
 
-  it('不足額は単純な差額より大きい', () => {
-    // 単純には 10,000 円だが、買うと全体も増えるので 20,000 円必要
-    const r = evaluateDefensive(rows(40000, 60000), 50);
-    expect(r.shortfall).toBeCloseTo(20000, 2);
+  it('不足分は単純な差額より大きい', () => {
+    // 単純には配当 100 だが、増やすと全体も増えるので 200 必要
+    expect(evaluateDefensive(rows(400, 600), 50).shortfall).toBeCloseTo(200, 2);
+  });
+
+  it('不足分を利回りで投資額に換算する', () => {
+    const r = evaluateDefensive(rows(400, 600), 50);
+    // ディフェンシブの利回り 4% なら、配当 200 は 5,000 円の投資にあたる
+    expect(r.shortfall_amount).toBeCloseTo(r.shortfall / 0.04, 2);
   });
 
   it('適合していれば景気敏感株の買い増し余地を出す', () => {
-    const r = evaluateDefensive(rows(60000, 40000), 50);
-    // 景気敏感を y 買うと D の比率は 60000/(100000+y)。50% を保つ上限は y = 20,000
-    expect(r.cyclical_room).toBeCloseTo(20000, 2);
-    const after = (60000 / (100000 + r.cyclical_room)) * 100;
-    expect(after).toBeCloseTo(50, 4);
+    const r = evaluateDefensive(rows(600, 400), 50);
+    // 景気敏感の配当を y 増やすと D の比率は 600/(1000+y)。50% を保つ上限は y = 200
+    expect(r.cyclical_room).toBeCloseTo(200, 2);
+    // 景気敏感の利回り 5% で換算する
+    expect(r.cyclical_room_amount).toBeCloseTo(200 / 0.05, 2);
   });
 
   it('ちょうど下限なら余地ゼロ', () => {
-    const r = evaluateDefensive(rows(50000, 50000), 50);
+    const r = evaluateDefensive(rows(500, 500), 50);
     expect(r.passing).toBe(true);
     expect(r.cyclical_room).toBeCloseTo(0, 2);
   });
 
   it('ディフェンシブ株が無ければ不足', () => {
-    const r = evaluateDefensive([{ label: 'K', cost: 50000, dividend: 2000, count: 5, share_pct: 100, yield_pct: 4 }], 50);
+    const r = evaluateDefensive([
+      { label: 'K', cost: 50000, dividend: 2000, count: 5, share_pct: 100, yield_pct: 4 },
+    ], 50);
     expect(r.passing).toBe(false);
     expect(r.defensive_share_pct).toBe(0);
+    expect(r.shortfall_amount).toBeNull();   // 換算に使う利回りが無い
   });
 
   it('保有が無ければ判定しない', () => {
     const r = evaluateDefensive([], 50);
-    expect(r.total_cost).toBe(0);
+    expect(r.total_dividend).toBe(0);
     expect(r.shortfall).toBe(0);
   });
 
   it('下限は設定で変えられる', () => {
     const store = new Store();
-    const stock = store.createStock({ code: '1001', name: '守り', classification: 'D' });
+    const stock = store.createStock({ code: '1001', name: '守り', classification: 'D', dividend_per_share: 40 });
     const position = store.createPosition({ stock_id: stock.id });
-    store.createTransaction({ position_id: position.id, type: 'BUY', trade_date: '2024-01', shares: 40, price: 1000 });
-    const s2 = store.createStock({ code: '1002', name: '攻め', classification: 'K' });
+    store.createTransaction({ position_id: position.id, type: 'BUY', trade_date: '2024-01', shares: 10, price: 1000 });
+    const s2 = store.createStock({ code: '1002', name: '攻め', classification: 'K', dividend_per_share: 60 });
     const p2 = store.createPosition({ stock_id: s2.id });
-    store.createTransaction({ position_id: p2.id, type: 'BUY', trade_date: '2024-01', shares: 60, price: 1000 });
+    store.createTransaction({ position_id: p2.id, type: 'BUY', trade_date: '2024-01', shares: 10, price: 1000 });
 
-    expect(dashboard(store).rules.defensive.passing).toBe(false);   // 40%
+    // 配当は 400 と 600 で、ディフェンシブは 40%
+    expect(dashboard(store).rules.defensive.defensive_share_pct).toBe(40);
+    expect(dashboard(store).rules.defensive.passing).toBe(false);
     store.updateSettings({ min_defensive_pct: 30 });
     expect(dashboard(store).rules.defensive.passing).toBe(true);
   });

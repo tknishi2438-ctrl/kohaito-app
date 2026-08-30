@@ -1,9 +1,9 @@
 // ダッシュボード: 資産サマリー・分散ルール・構成比・要対応の一覧。
 
-import { api } from '../lib/api.js?v=202608302253';
-import * as charts from '../lib/charts.js?v=202608302253';
-import { delegate, esc, modal, toast } from '../lib/dom.js?v=202608302253';
-import { classification, pct, signClass, yen } from '../lib/format.js?v=202608302253';
+import { api } from '../lib/api.js?v=202608302257';
+import * as charts from '../lib/charts.js?v=202608302257';
+import { delegate, esc, modal, toast } from '../lib/dom.js?v=202608302257';
+import { classification, pct, signClass, yen } from '../lib/format.js?v=202608302257';
 
 function summaryCard(label, value, { cls = '', sub = '' } = {}) {
   return `
@@ -31,8 +31,8 @@ function attentionNotice(attention, summary) {
   }
   (attention.defensive_short || []).forEach((d) => {
     items.push(
-      `ディフェンシブ株が <b>${d.share_pct.toFixed(1)}%</b> で下限 ${d.min_pct}% を下回っています`
-      + `（あと ${yen(d.shortfall)} 買い増すと届きます）`,
+      `ディフェンシブ株の配当が <b>${d.share_pct.toFixed(1)}%</b> で下限 ${d.min_pct}% を下回っています`
+      + (d.shortfall_amount ? `（あと ${yen(d.shortfall_amount)} 買い増すと届きます）` : ''),
     );
   });
   if (attention.undated_transactions.length) {
@@ -145,7 +145,7 @@ function dividendRuleBlock(rule) {
  * 守りの厚みを見るため投資額の比率で判定する。
  */
 function defensiveRuleBlock(rule) {
-  if (!rule || !rule.total_cost) return '';
+  if (!rule || !rule.total_dividend) return '';
 
   const verdict = rule.passing
     ? `<span class="badge buy">適合</span> ディフェンシブ株が ${rule.defensive_share_pct.toFixed(1)}%`
@@ -153,13 +153,17 @@ function defensiveRuleBlock(rule) {
       + `（下限まで ${(rule.min_pct - rule.defensive_share_pct).toFixed(1)} ポイント）`;
 
   // 余力欄は幅が狭いので短く。意味は下の説明文で補う
-  const note = rule.passing ? `余地 ${yen(rule.cyclical_room)}` : `あと ${yen(rule.shortfall)}`;
+  const amount = rule.passing ? rule.cyclical_room_amount : rule.shortfall_amount;
+  const dividendOnly = rule.passing ? rule.cyclical_room : rule.shortfall;
+  const note = amount === null
+    ? `配当 ${yen(dividendOnly)}`
+    : `${rule.passing ? '余地' : 'あと'} ${yen(amount)}`;
 
   return `
     <div class="rule-block">
       <div class="rule-head">
         <h4>ディフェンシブ株の比率</h4>
-        <span class="rule-limit">${rule.min_pct}% 以上を保つ · 投資額ベース</span>
+        <span class="rule-limit">${rule.min_pct}% 以上を保つ · 年間配当ベース</span>
         <button class="btn btn-sm btn-ghost" data-action="edit-defensive-limit">下限を変更</button>
       </div>
       <p class="rule-verdict">
@@ -183,9 +187,10 @@ function defensiveRuleBlock(rule) {
     },
   ], { limit: rule.min_pct, scaleMax: 100 })}
       <p class="hint">
-        点線は下限です。ディフェンシブ株の割合が<b style="color:var(--text-2)">この線より右</b>にあれば適合です。
+        年間配当のうち、ディフェンシブ株から得ている割合です。
+        点線は下限で、<b style="color:var(--text-2)">この線より右</b>にあれば適合です。
         ${rule.passing
-    ? '「余地 ◯円」は、下限を割らずに<b style="color:var(--text-2)">景気敏感株</b>を買い増せる金額です。'
+    ? '「余地 ◯円」は、下限を割らずに<b style="color:var(--text-2)">景気敏感株</b>を買い増せる投資額です。'
     : '「あと ◯円」は、下限に届くまでに必要な<b style="color:var(--text-2)">ディフェンシブ株</b>の投資額です。'}
       </p>
     </div>`;
@@ -337,7 +342,7 @@ export async function render(root, { navigate }) {
       title: 'ディフェンシブ株の下限',
       name: 'min_defensive_pct',
       label: '保つ割合の下限 (%)',
-      hint: '投資額に占める割合で判定します。既定は 50% です。',
+      hint: '年間配当に占める割合で判定します。既定は 50% です。',
       current: data.rules.defensive.min_pct,
       min: 0,
       onDone: () => render(root, { navigate }),

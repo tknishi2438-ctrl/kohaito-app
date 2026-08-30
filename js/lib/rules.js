@@ -139,40 +139,48 @@ export function evaluateStockDividends(views, limitPct = DEFAULT_MAX_STOCK_DIVID
  * ディフェンシブ株(D)を一定割合以上に保てているかを見る。
  *
  * 上の 2 つが「◯% 以下に抑える」上限のルールなのに対し、これは
- * 「◯% 以上を保つ」下限のルール。守りの厚みを見るためのものなので、
- * 配当ではなく**投資額**の比率で判定する。
+ * 「◯% 以上を保つ」下限のルール。分母は他と揃えて**年間配当**を使う。
+ *
+ * 不足分・余地は配当額で求めたあと、それぞれの利回りで投資額に換算する。
  */
 export function evaluateDefensive(rows, minPct = DEFAULT_MIN_DEFENSIVE_PCT) {
   const min = Number(minPct);
-  const total = rows.reduce((sum, r) => sum + r.cost, 0);
+  const total = rows.reduce((sum, r) => sum + r.dividend, 0);
   const find = (label) => rows.find((r) => String(r.label).toUpperCase() === label);
   const defensive = find('D');
   const cyclical = find('K');
 
-  const cost = defensive ? defensive.cost : 0;
-  const share = total > 0 ? (cost / total) * 100 : 0;
+  const dividend = defensive ? defensive.dividend : 0;
+  const share = total > 0 ? (dividend / total) * 100 : 0;
   const ratio = min / 100;
 
-  // 不足しているとき: ディフェンシブ株をあといくら買えば下限に届くか
+  // 不足しているとき: ディフェンシブ株の配当をいくら増やせば下限に届くか
   //   (D + x) / (T + x) >= min  =>  x >= (min*T - D) / (1 - min)
   const shortfall = ratio < 1 && total > 0
-    ? Math.max(0, (ratio * total - cost) / (1 - ratio))
+    ? Math.max(0, (ratio * total - dividend) / (1 - ratio))
     : 0;
 
-  // 満たしているとき: 景気敏感株をあといくら買っても下限を割らないか
+  // 満たしているとき: 景気敏感株の配当をいくら増やしても下限を割らないか
   //   D / (T + y) >= min  =>  y <= D/min - T
-  const cyclicalRoom = ratio > 0 && total > 0 ? Math.max(0, cost / ratio - total) : 0;
+  const cyclicalRoom = ratio > 0 && total > 0 ? Math.max(0, dividend / ratio - total) : 0;
+
+  // 配当額を、それぞれの利回りで投資額に換算する
+  const toAmount = (amount, row) => (
+    row && row.yield_pct > 0 ? round(amount / (row.yield_pct / 100), 2) : null
+  );
 
   return {
     min_pct: min,
-    total_cost: round(total, 2),
-    defensive_cost: round(cost, 2),
+    total_dividend: round(total, 2),
+    defensive_dividend: round(dividend, 2),
     defensive_share_pct: round(share, 2),
     defensive_count: defensive ? defensive.count : 0,
-    cyclical_share_pct: cyclical ? round((cyclical.cost / (total || 1)) * 100, 2) : 0,
+    cyclical_share_pct: cyclical && total > 0 ? round((cyclical.dividend / total) * 100, 2) : 0,
     cyclical_count: cyclical ? cyclical.count : 0,
     passing: share >= min,
-    shortfall: round(shortfall, 2),      // 不足時: 買い増すべきディフェンシブ株の額
-    cyclical_room: round(cyclicalRoom, 2), // 充足時: 買える景気敏感株の額
+    shortfall: round(shortfall, 2),                     // 不足している配当額
+    shortfall_amount: toAmount(shortfall, defensive),   // それを得るための投資額
+    cyclical_room: round(cyclicalRoom, 2),              // 増やせる景気敏感株の配当額
+    cyclical_room_amount: toAmount(cyclicalRoom, cyclical),
   };
 }

@@ -452,11 +452,19 @@ describe('ポートフォリオの組み立て', () => {
     expect(data.summary.weighted_yield).toBeCloseTo(5.0, 4);
   });
 
-  it('決算月がない銘柄は要対応として拾う', () => {
+  it('決算月があれば権利確定月を出す', () => {
     const store = newStore();
-    const { position } = seed(store, { dividend_per_share: 100 });
-    store.createTransaction({ position_id: position.id, type: 'BUY', trade_date: '2024-01-01', shares: 10, price: 1000 });
-    expect(dashboard(store).needs_attention.no_fiscal_month.length).toBe(1);
+    const { stock, position } = seed(store, { dividend_per_share: 100, fiscal_month: 3 });
+    store.createTransaction({ position_id: position.id, type: 'BUY', trade_date: '2024-01', shares: 10, price: 1000 });
+    expect(getStockView(store, stock.id).dividend_months).toEqual([3, 9]);
+  });
+
+  it('決算月がなければ権利確定月は空になる(警告は出さない)', () => {
+    const store = newStore();
+    const { stock, position } = seed(store, { dividend_per_share: 100 });
+    store.createTransaction({ position_id: position.id, type: 'BUY', trade_date: '2024-01', shares: 10, price: 1000 });
+    expect(getStockView(store, stock.id).dividend_months).toEqual([]);
+    expect(dashboard(store).needs_attention.no_fiscal_month).toBe(undefined);
   });
 
   it('売り切った銘柄は保有に数えない', () => {

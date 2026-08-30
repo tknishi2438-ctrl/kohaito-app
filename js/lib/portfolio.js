@@ -210,8 +210,6 @@ export function dashboard(store) {
       .sort((a, b) => b.metrics.yield_on_cost - a.metrics.yield_on_cost)
       .slice(0, 10).map(brief),
     needs_attention: {
-      no_fiscal_month: held.filter((v) => !v.fiscal_month)
-        .map((v) => ({ id: v.id, code: v.code, name: v.name })),
       no_market_price: held.filter((v) => !v.market_price)
         .map((v) => ({ id: v.id, code: v.code, name: v.name })),
       undated_transactions: undatedTransactions(store),

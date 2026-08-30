@@ -1,9 +1,10 @@
-// ダッシュボード: 資産サマリー・構成比・配当カレンダー・要対応の一覧。
+// ダッシュボード: 資産サマリー・分散ルール・構成比・要対応の一覧。
 
 import { api } from '../lib/api.js';
 import * as charts from '../lib/charts.js';
 import { delegate, esc, modal, toast } from '../lib/dom.js';
 import { classification, classificationColor, pct, signClass, yen } from '../lib/format.js';
+
 function summaryCard(label, value, { cls = '', sub = '' } = {}) {
   return `
     <div class="summary-cell">
@@ -30,9 +31,6 @@ function attentionNotice(attention, summary) {
   }
   if (attention.undated_transactions.length) {
     items.push(`取引月が未設定の取引が <b>${attention.undated_transactions.length}</b> 件あります`);
-  }
-  if (attention.no_fiscal_month.length) {
-    items.push(`決算月が未設定の銘柄が <b>${attention.no_fiscal_month.length}</b> 件あります(権利確定月が表示されません)`);
   }
   if (attention.no_market_price.length) {
     items.push(`株価が未取得の銘柄が <b>${attention.no_market_price.length}</b> 件あります`);

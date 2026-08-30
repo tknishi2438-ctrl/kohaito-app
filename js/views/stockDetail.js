@@ -20,7 +20,7 @@ function txRow(tx) {
     <td><span class="badge ${tx.type.toLowerCase()}">${TX_LABEL[tx.type]}</span></td>
     ${detail}
     <td class="r muted">${tx.fee ? yen(tx.fee) : ''}</td>
-    <td class="muted" style="white-space:normal;max-width:220px">${esc(tx.note || '')}</td>
+    <td class="muted cell-note">${esc(tx.note || '')}</td>
     <td class="r"><div class="row-actions">
       <button class="btn btn-sm btn-ghost" data-action="edit-tx" data-id="${tx.id}">編集</button>
       <button class="btn btn-sm btn-danger" data-action="delete-tx" data-id="${tx.id}">削除</button>

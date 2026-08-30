@@ -458,6 +458,14 @@ table.data tbody tr:nth-child(even):hover { background: var(--row-hover); }
 table.data tbody tr:last-child td { border-bottom: none; }
 table.data tbody tr.clickable { cursor: pointer; }
 table.data tr.zero td { color: var(--text-3); }
+/* メモ列だけは折り返す。ただし潰れて縦に伸びないよう下限を持たせる */
+table.data td.cell-note {
+  white-space: normal;
+  min-width: 160px;
+  max-width: 260px;
+  line-height: 1.5;
+}
+
 .cell-name { display: flex; align-items: center; gap: 8px; }
 .cell-name strong { font-weight: 500; }
 .row-actions { display: flex; gap: 6px; justify-content: flex-end; }

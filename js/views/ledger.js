@@ -61,7 +61,7 @@ export async function render(root, { navigate }) {
             <td class="r">${tx.type === 'SPLIT' ? '—' : shares(tx.shares)}</td>
             <td class="r">${tx.type === 'SPLIT' ? '—' : yen(tx.price)}</td>
             <td class="r">${amount(tx)}</td>
-            <td class="muted" style="white-space:normal;max-width:200px">${esc(tx.note || '')}</td>
+            <td class="muted cell-note">${esc(tx.note || '')}</td>
             <td class="r"><div class="row-actions">
               <button class="btn btn-sm btn-ghost" data-action="edit" data-id="${tx.id}">編集</button>
               <button class="btn btn-sm btn-danger" data-action="delete" data-id="${tx.id}">削除</button>

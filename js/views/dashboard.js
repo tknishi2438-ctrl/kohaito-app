@@ -215,6 +215,37 @@ export async function render(root, { navigate }) {
     return;
   }
 
+  // 保存先を未設定のまま空で開くと「データが消えた」ように見えるため、
+  // 何をすればよいかを最初に案内する
+  if (data.summary.stock_count === 0) {
+    const status = api.status();
+    root.innerHTML = `
+      <div class="card" style="margin-top:0;max-width:640px">
+        <div class="card-head"><h3 class="card-title">はじめに: 保存先をつなぐ</h3></div>
+        ${status.connected ? `
+          <p style="margin:0 0 8px;font-size:13px;color:var(--text-2)">
+            ${esc(status.repo)} に接続していますが、まだ銘柄が登録されていません。
+          </p>
+          <p class="hint" style="margin:0">
+            「データ」タブから JSON を読み込むか、「保有一覧」から銘柄を追加してください。
+          </p>
+        ` : `
+          <p style="margin:0 0 12px;font-size:13px;color:var(--text-2)">
+            この端末はまだ GitHub につながっていないため、データを読み込めていません。<br>
+            <b style="color:var(--text-1)">記録した内容が消えたわけではありません。</b>
+            GitHub 側に保存されており、接続すれば表示されます。
+          </p>
+          <ol class="hint" style="margin:0 0 16px;padding-left:1.3em;line-height:2">
+            <li>GitHub でアクセストークン(合鍵)を作る</li>
+            <li>下のボタンから、ユーザー名・リポジトリ名・トークンを入力する</li>
+          </ol>
+          <button class="btn btn-primary" data-action="go-settings">保存先を設定する</button>
+        `}
+      </div>`;
+    delegate(root, 'click', { 'go-settings': () => navigate('settings') });
+    return;
+  }
+
   const s = data.summary;
   const hasPrices = s.valued_cost > 0;
   const calendarTotal = data.calendar.months.reduce((a, b) => a + b, 0);

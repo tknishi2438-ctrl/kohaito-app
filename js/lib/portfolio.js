@@ -1,8 +1,8 @@
 // 銘柄・ポジション・取引を組み立てて、画面が必要とする形に整える層。
 // もとは Python の app/portfolio.py。
 
-import { aggregate, computePosition, dividendMonths, EPSILON, evaluate, sortTransactions } from './models.js';
-import { evaluateSectors, evaluateStockDividends } from './rules.js';
+import { aggregate, computePosition, dividendMonths, EPSILON, evaluate, sortTransactions } from './models.js?v=202608302150';
+import { evaluateSectors, evaluateStockDividends } from './rules.js?v=202608302150';
 
 function round(value, digits) {
   const f = 10 ** digits;

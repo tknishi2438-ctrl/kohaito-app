@@ -1,7 +1,7 @@
 // 外部ライブラリを使わない SVG グラフ。配色は CSS 変数から読むため、
 // 明暗テーマの切り替えにそのまま追従する。
 
-import { esc } from './dom.js';
+import { esc } from './dom.js?v=202608302150';
 
 const PALETTE_SIZE = 12;
 const FALLBACK = '#8a6a17';

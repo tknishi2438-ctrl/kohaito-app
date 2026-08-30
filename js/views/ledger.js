@@ -1,9 +1,9 @@
 // 取引台帳: 全銘柄の取引を新しい順に一覧する。
 
-import { api } from '../lib/api.js';
-import { delegate, esc } from '../lib/dom.js';
-import { confirmDelete, transactionForm } from '../lib/forms.js';
-import { date, num, shares, TX_LABEL, yen } from '../lib/format.js';
+import { api } from '../lib/api.js?v=202608302150';
+import { delegate, esc } from '../lib/dom.js?v=202608302150';
+import { confirmDelete, transactionForm } from '../lib/forms.js?v=202608302150';
+import { date, num, shares, TX_LABEL, yen } from '../lib/format.js?v=202608302150';
 
 const state = { search: '', type: 'ALL' };
 

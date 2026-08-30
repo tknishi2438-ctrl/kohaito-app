@@ -45,7 +45,7 @@ function connectionForm(current, onDone) {
             <label>${name === 'owner' ? 'GitHub のユーザー名' : 'データ用リポジトリ名'}</label>
             <input class="input" name="${name}" required
                    value="${esc(current?.[name] ?? '')}"
-                   placeholder="${name === 'owner' ? 'your-account' : 'takahaito-data'}">
+                   placeholder="${name === 'owner' ? 'your-account' : 'kohaito-data'}">
           </div>`).join('')}
       </div>
       <div class="field-row">

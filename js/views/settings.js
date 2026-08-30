@@ -176,11 +176,12 @@ export async function render(root, { navigate }) {
         <p class="card-note">IRBANK</p>
       </div>
       <p class="hint" style="margin:0">
-        ブラウザから irbank.net を直接読み込むことはできないため(サイト側の制限)、
-        株価・配当履歴・業績の更新は <b style="color:var(--text-2)">GitHub Actions</b> が
-        毎晩自動で実行し、データを更新します。<br>
-        手元の Mac から今すぐ更新したい場合は、ターミナルで
-        <span class="mono">python3 sync/update.py</span> を実行してください。
+        IRBANK は<b style="color:var(--text-2)">ブラウザからの直接読み込みと、
+        データセンターからのアクセスの両方を拒否します</b>。
+        そのため株価・配当の更新は、自宅の回線につながった Mac から実行する必要があります。<br><br>
+        Mac のターミナルで次を実行すると、取得から GitHub への反映までを行います。<br>
+        <span class="mono">cd ~/Claude/高配当株管理 && ./sync/refresh.sh</span><br><br>
+        実行後、この画面を再読み込みすると新しい株価が反映されます。
       </p>
     </div>
 

@@ -1,8 +1,8 @@
 // 銘柄・ポジション・取引を組み立てて、画面が必要とする形に整える層。
 // もとは Python の app/portfolio.py。
 
-import { aggregate, computePosition, dividendMonths, EPSILON, evaluate, sortTransactions } from './models.js?v=202608302150';
-import { evaluateSectors, evaluateStockDividends } from './rules.js?v=202608302150';
+import { aggregate, computePosition, dividendMonths, EPSILON, evaluate, sortTransactions } from './models.js?v=202608302154';
+import { evaluateSectors, evaluateStockDividends } from './rules.js?v=202608302154';
 
 function round(value, digits) {
   const f = 10 ** digits;
@@ -139,24 +139,6 @@ function groupBreakdown(views, key) {
     .sort((a, b) => b.cost - a.cost);
 }
 
-function yieldDistribution(views) {
-  const edges = [0, 2, 3, 3.5, 4, 4.5, 5, 6, Infinity];
-  const labels = ['〜2%', '2〜3%', '3〜3.5%', '3.5〜4%', '4〜4.5%', '4.5〜5%', '5〜6%', '6%〜'];
-  const buckets = labels.map((label) => ({ label, count: 0, cost: 0 }));
-  for (const v of views) {
-    if (v.metrics.shares <= EPSILON) continue;
-    const y = v.metrics.yield_on_cost;
-    for (let i = 0; i < labels.length; i += 1) {
-      if (y >= edges[i] && y < edges[i + 1]) {
-        buckets[i].count += 1;
-        buckets[i].cost = round(buckets[i].cost + v.metrics.cost, 2);
-        break;
-      }
-    }
-  }
-  return buckets;
-}
-
 function undatedTransactions(store) {
   const positionById = new Map(store.doc.positions.map((p) => [p.id, p]));
   const stockById = new Map(store.doc.stocks.map((s) => [s.id, s]));
@@ -202,7 +184,6 @@ export function dashboard(store) {
     rules: { sector: sectorRule, stock_dividend: dividendRule },
     by_sector: bySector,
     by_classification: groupBreakdown(views, 'classification'),
-    yield_distribution: yieldDistribution(views),
     top_dividend: [...held]
       .sort((a, b) => b.metrics.annual_dividend - a.metrics.annual_dividend)
       .slice(0, 10).map(brief),

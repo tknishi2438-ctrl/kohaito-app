@@ -1,9 +1,9 @@
 // ダッシュボード: 資産サマリー・分散ルール・構成比・要対応の一覧。
 
-import { api } from '../lib/api.js?v=202608302150';
-import * as charts from '../lib/charts.js?v=202608302150';
-import { delegate, esc, modal, toast } from '../lib/dom.js?v=202608302150';
-import { classification, classificationColor, pct, signClass, yen } from '../lib/format.js?v=202608302150';
+import { api } from '../lib/api.js?v=202608302154';
+import * as charts from '../lib/charts.js?v=202608302154';
+import { delegate, esc, modal, toast } from '../lib/dom.js?v=202608302154';
+import { classification, classificationColor, pct, signClass, yen } from '../lib/format.js?v=202608302154';
 
 function summaryCard(label, value, { cls = '', sub = '' } = {}) {
   return `
@@ -268,30 +268,6 @@ export async function render(root, { navigate }) {
     </div>
 
     ${rulesCard(data.rules)}
-
-    <div class="grid grid-2" style="margin-top:16px">
-      <div class="card" style="margin-top:0">
-        <div class="card-head">
-          <h3 class="card-title">セクター別の利回り</h3>
-          <p class="card-note">取得価格ベースの加重平均</p>
-        </div>
-        ${charts.hbars(
-    data.by_sector.slice(0, 10).map((r) => ({ label: r.label, value: r.yield_pct })),
-    { unit: (v) => `${v.toFixed(2)}%` },
-  )}
-      </div>
-
-      <div class="card" style="margin-top:0">
-        <div class="card-head">
-          <h3 class="card-title">利回り分布</h3>
-          <p class="card-note">取得利回り別の銘柄数</p>
-        </div>
-        ${charts.bars(
-    data.yield_distribution.map((b) => ({ label: b.label.replace('〜', '-'), value: b.count })),
-    { width: 560, height: 230, unit: (v) => String(Math.round(v)) },
-  )}
-      </div>
-    </div>
 
     <div class="card">
       <div class="card-head">

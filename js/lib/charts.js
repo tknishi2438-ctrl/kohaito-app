@@ -1,7 +1,7 @@
 // 外部ライブラリを使わない SVG グラフ。配色は CSS 変数から読むため、
 // 明暗テーマの切り替えにそのまま追従する。
 
-import { esc } from './dom.js?v=202608302150';
+import { esc } from './dom.js?v=202608302154';
 
 const PALETTE_SIZE = 12;
 const FALLBACK = '#8a6a17';
@@ -80,62 +80,6 @@ export function donut(items, { size = 190, thickness = 26, unit = compact } = {}
       </svg>
       <div class="legend">${legend}</div>
     </div>`;
-}
-
-/**
- * 縦棒グラフ。items: [{label, value, color?}]
- *
- * viewBox は固定の設計サイズで描き、等比で伸縮させる。
- * preserveAspectRatio="none" にすると文字まで横に潰れてしまうため使わない。
- */
-export function bars(items, { width = 720, height = 240, unit = compact, highlight = null } = {}) {
-  if (!items.length) return '<p class="muted" style="margin:0">データがありません</p>';
-  const padTop = 14, padBottom = 30, padLeft = 62, padRight = 8;
-  const plotH = height - padTop - padBottom;
-  const max = niceMax(Math.max(...items.map((i) => i.value), 0));
-  const slot = (width - padLeft - padRight) / items.length;
-  const barW = Math.min(slot * 0.6, 30);
-
-  const gridlines = [0, 0.25, 0.5, 0.75, 1].map((ratio) => {
-    const y = padTop + plotH * (1 - ratio);
-    return `<line class="grid-line" x1="${padLeft}" y1="${y}" x2="${width - padRight}" y2="${y}" />
-            <text x="${padLeft - 8}" y="${y + 4}" text-anchor="end">${unit(max * ratio)}</text>`;
-  }).join('');
-
-  const rects = items.map((item, i) => {
-    const h = max > 0 ? (item.value / max) * plotH : 0;
-    const x = padLeft + slot * i + (slot - barW) / 2;
-    const y = padTop + plotH - h;
-    const fill = item.color || color(highlight === i ? 2 : 0);
-    return `
-      <rect class="bar" x="${x.toFixed(2)}" y="${y.toFixed(2)}" width="${barW.toFixed(2)}"
-            height="${Math.max(h, item.value > 0 ? 1 : 0).toFixed(2)}" fill="${fill}" rx="1">
-        <title>${esc(item.label)}: ${unit(item.value)}</title>
-      </rect>
-      <text x="${(padLeft + slot * i + slot / 2).toFixed(2)}" y="${height - 10}"
-            text-anchor="middle">${esc(item.label)}</text>`;
-  }).join('');
-
-  return `<svg class="chart" viewBox="0 0 ${width} ${height}" style="width:100%;height:auto" role="img">
-    ${gridlines}
-    <line class="axis-line" x1="${padLeft}" y1="${padTop + plotH}" x2="${width - padRight}" y2="${padTop + plotH}" />
-    ${rects}
-  </svg>`;
-}
-
-/** 横棒ランキング。items: [{label, value, sub?}] */
-export function hbars(items, { unit = compact } = {}) {
-  if (!items.length) return '<p class="muted" style="margin:0">データがありません</p>';
-  const max = Math.max(...items.map((i) => i.value), 0) || 1;
-  return `<div class="hbars">${items.map((item, i) => `
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:7px;font-size:12px">
-      <span style="flex:0 0 130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap"
-            title="${esc(item.label)}">${esc(item.label)}</span>
-      <span style="flex:1 1 auto;height:9px;background:var(--surface-3);border-radius:2px;overflow:hidden">
-        <span style="display:block;height:100%;width:${((item.value / max) * 100).toFixed(1)}%;background:${color(i)}"></span>
-      </span>
-      <span class="num" style="flex:0 0 84px;text-align:right;color:var(--text-2)">${unit(item.value)}</span>
-    </div>`).join('')}</div>`;
 }
 
 /**

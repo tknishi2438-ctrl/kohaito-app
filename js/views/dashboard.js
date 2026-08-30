@@ -170,17 +170,6 @@ function classificationBreakdown(rows) {
     </tbody></table>`;
 }
 
-/** 円グラフの凡例が長くなりすぎないよう、小さい項目を「その他」にまとめる。 */
-function capped(rows, limit = 11) {
-  if (rows.length <= limit + 1) return rows.map((r) => ({ label: r.label, value: r.cost }));
-  const head = rows.slice(0, limit).map((r) => ({ label: r.label, value: r.cost }));
-  const rest = rows.slice(limit);
-  return [...head, {
-    label: `その他 ${rest.length} 業種`,
-    value: rest.reduce((sum, r) => sum + r.cost, 0),
-  }];
-}
-
 function rankTable(rows, valueKey, valueFormat) {
   if (!rows.length) return '<p class="muted" style="margin:0">データがありません</p>';
   return `<table class="data"><tbody>
@@ -283,14 +272,6 @@ export async function render(root, { navigate }) {
     <div class="grid grid-2" style="margin-top:16px">
       <div class="card" style="margin-top:0">
         <div class="card-head">
-          <h3 class="card-title">セクター別構成</h3>
-          <p class="card-note">投資額ベース</p>
-        </div>
-        ${charts.donut(capped(data.by_sector), { unit: (v) => `${charts.compact(v)}円` })}
-      </div>
-
-      <div class="card" style="margin-top:0">
-        <div class="card-head">
           <h3 class="card-title">セクター別の利回り</h3>
           <p class="card-note">取得価格ベースの加重平均</p>
         </div>
@@ -298,24 +279,6 @@ export async function render(root, { navigate }) {
     data.by_sector.slice(0, 10).map((r) => ({ label: r.label, value: r.yield_pct })),
     { unit: (v) => `${v.toFixed(2)}%` },
   )}
-      </div>
-    </div>
-
-    <div class="grid grid-2" style="margin-top:16px">
-      <div class="card" style="margin-top:0">
-        <div class="card-head">
-          <h3 class="card-title">景気敏感 / ディフェンシブ</h3>
-          <p class="card-note">投資額ベース</p>
-        </div>
-        ${charts.donut(
-    data.by_classification.map((r) => ({
-      label: classification(r.label).short,
-      value: r.cost,
-      color: classificationColor(r.label),   // K = 赤 / D = 青 をバッジと揃える
-    })),
-    { size: 160, thickness: 24, unit: (v) => `${charts.compact(v)}円` },
-  )}
-        ${classificationBreakdown(data.by_classification)}
       </div>
 
       <div class="card" style="margin-top:0">
@@ -328,6 +291,22 @@ export async function render(root, { navigate }) {
     { width: 560, height: 230, unit: (v) => String(Math.round(v)) },
   )}
       </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h3 class="card-title">景気敏感 / ディフェンシブ</h3>
+        <p class="card-note">投資額ベース</p>
+      </div>
+      ${charts.donut(
+    data.by_classification.map((r) => ({
+      label: classification(r.label).short,
+      value: r.cost,
+      color: classificationColor(r.label),   // K = 赤 / D = 青 をバッジと揃える
+    })),
+    { size: 160, thickness: 24, unit: (v) => `${charts.compact(v)}円` },
+  )}
+      ${classificationBreakdown(data.by_classification)}
     </div>
 
     <div class="grid grid-2" style="margin-top:16px">

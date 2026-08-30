@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>テスト — 高配当株ポートフォリオ</title>
+  <style>
+    body {
+      font-family: 'Hiragino Sans', sans-serif;
+      background: #f4f1ec; color: #1c2026;
+      margin: 0; padding: 24px; line-height: 1.7;
+    }
+    h1 { font-size: 18px; margin: 0 0 4px; }
+    #summary { font-size: 15px; font-weight: 700; margin-bottom: 20px; }
+    h2 { font-size: 13px; color: #545c68; margin: 22px 0 6px; letter-spacing: .04em; }
+    section { border-top: 1px solid #ddd7cb; padding-top: 4px; }
+    .row { display: flex; gap: 10px; font-size: 13px; padding: 3px 0; flex-wrap: wrap; }
+    .mark { width: 14px; flex: none; font-weight: 700; }
+    .pass { color: #1f7346; }
+    .fail { color: #a8322c; }
+    .row.fail { font-weight: 700; }
+    pre {
+      width: 100%; margin: 4px 0 8px 24px; padding: 8px 10px;
+      background: #fbe9e7; border-radius: 4px;
+      font-size: 12px; white-space: pre-wrap; color: #8d2b26;
+    }
+  </style>
+</head>
+<body>
+  <h1>計算ロジックのテスト</h1>
+  <div id="summary">実行中…</div>
+  <div id="results"></div>
+
+  <script type="module">
+    import { run, render } from './runner.js';
+    import './tests.js';
+    const summary = run();
+    render(summary);
+    // ブラウザ越しに結果を読み取れるようにしておく
+    window.__testSummary = summary;
+    document.title = `${summary.failed ? 'NG' : 'OK'} ${summary.passed}/${summary.total} — テスト`;
+  </script>
+</body>
+</html>

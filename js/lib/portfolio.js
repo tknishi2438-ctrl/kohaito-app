@@ -1,0 +1,249 @@
+// 銘柄・ポジション・取引を組み立てて、画面が必要とする形に整える層。
+// もとは Python の app/portfolio.py。
+
+import { aggregate, computePosition, dividendMonths, EPSILON, evaluate, sortTransactions } from './models.js';
+import { evaluateSectors, evaluateStockDividends } from './rules.js';
+
+function round(value, digits) {
+  const f = 10 ** digits;
+  return Math.round(value * f) / f;
+}
+
+function buildPositionView(position, stock, transactions) {
+  const metrics = computePosition(transactions);
+  return {
+    ...position,
+    code: stock.code,
+    name: stock.name,
+    sector: stock.sector,
+    classification: stock.classification,
+    transaction_count: transactions.length,
+    metrics: evaluate(metrics, stock.dividend_per_share || 0, stock.market_price),
+  };
+}
+
+/** 銘柄単位の合計。複数ロットは合算した数値も併せて返す。 */
+function buildStockView(stock, positions) {
+  const sum = (key) => positions.reduce((acc, p) => acc + p.metrics[key], 0);
+  const shares = sum('shares');
+  const cost = sum('cost');
+
+  const rolled = {
+    shares,
+    cost,
+    avg_price: shares > EPSILON ? cost / shares : 0,
+    realized_pl: sum('realized_pl'),
+    gross_buy: sum('gross_buy'),
+    gross_sell: sum('gross_sell'),
+    total_fee: sum('total_fee'),
+    buy_count: sum('buy_count'),
+    sell_count: sum('sell_count'),
+    split_count: sum('split_count'),
+    first_trade_date: null,
+    last_trade_date: null,
+  };
+
+  return {
+    ...stock,
+    dividend_months: dividendMonths(stock.fiscal_month, Boolean(stock.pays_interim ?? 1)),
+    positions,
+    position_count: positions.length,
+    metrics: evaluate(rolled, stock.dividend_per_share || 0, stock.market_price),
+  };
+}
+
+export function listStockViews(store) {
+  const byPosition = new Map();
+  for (const tx of store.doc.transactions) {
+    if (!byPosition.has(tx.position_id)) byPosition.set(tx.position_id, []);
+    byPosition.get(tx.position_id).push(tx);
+  }
+
+  const stockById = new Map(store.doc.stocks.map((s) => [s.id, s]));
+  const byStock = new Map();
+  for (const position of store.listPositions()) {
+    const stock = stockById.get(position.stock_id);
+    if (!stock) continue;
+    if (!byStock.has(stock.id)) byStock.set(stock.id, []);
+    byStock.get(stock.id).push(
+      buildPositionView(position, stock, byPosition.get(position.id) || []),
+    );
+  }
+
+  return store.listStocks().map((s) => buildStockView(s, byStock.get(s.id) || []));
+}
+
+export function getStockView(store, stockId) {
+  const stock = store.getStock(stockId);
+  const positions = store.listPositions(stock.id).map((p) => (
+    buildPositionView(p, stock, store.listTransactions(p.id))
+  ));
+  const view = buildStockView(stock, positions);
+  const positionIds = new Set(positions.map((p) => p.id));
+
+  view.dividend_history = store.getDividendHistory(stock.id);
+  view.profit_history = store.getProfitHistory(stock.id);
+  view.transactions = sortTransactions(
+    store.doc.transactions.filter((t) => positionIds.has(t.position_id)),
+  ).map((t) => ({ ...t, stock_id: stock.id }));
+  return view;
+}
+
+/** 全取引を新しい順に返す(取引台帳ビュー用)。 */
+export function listAllTransactions(store) {
+  const positionById = new Map(store.doc.positions.map((p) => [p.id, p]));
+  const stockById = new Map(store.doc.stocks.map((s) => [s.id, s]));
+
+  const rows = store.doc.transactions.map((tx) => {
+    const position = positionById.get(tx.position_id);
+    const stock = position ? stockById.get(position.stock_id) : null;
+    return {
+      ...tx,
+      stock_id: stock ? stock.id : null,
+      position_label: position ? position.label : '',
+      code: stock ? stock.code : '',
+      name: stock ? stock.name : '',
+      sector: stock ? stock.sector : '',
+    };
+  }).filter((t) => t.stock_id !== null);
+
+  return sortTransactions(rows).reverse();
+}
+
+function groupBreakdown(views, key) {
+  const buckets = new Map();
+  for (const v of views) {
+    if (v.metrics.shares <= EPSILON) continue;
+    const label = String(v[key] || '').trim() || '未分類';
+    if (!buckets.has(label)) {
+      buckets.set(label, { cost: 0, dividend: 0, market_value: 0, count: 0 });
+    }
+    const b = buckets.get(label);
+    b.cost += v.metrics.cost;
+    b.dividend += v.metrics.annual_dividend;
+    b.market_value += v.metrics.market_value;
+    b.count += 1;
+  }
+
+  const total = [...buckets.values()].reduce((sum, b) => sum + b.cost, 0) || 1;
+  return [...buckets.entries()]
+    .map(([label, b]) => ({
+      label,
+      cost: round(b.cost, 2),
+      dividend: round(b.dividend, 2),
+      market_value: round(b.market_value, 2),
+      count: b.count,
+      share_pct: round((b.cost / total) * 100, 2),
+      yield_pct: b.cost > 0 ? round((b.dividend / b.cost) * 100, 3) : 0,
+    }))
+    .sort((a, b) => b.cost - a.cost);
+}
+
+/**
+ * 決算月から中間・期末の受取見込みを月別に振り分ける。
+ * 決算月が未設定の銘柄は unassigned に積む。
+ */
+function monthlyCalendar(views) {
+  const months = new Array(12).fill(0);
+  let unassigned = 0;
+  for (const v of views) {
+    const annual = v.metrics.annual_dividend;
+    if (annual <= 0) continue;
+    const targets = dividendMonths(v.fiscal_month, Boolean(v.pays_interim ?? 1));
+    if (!targets.length) {
+      unassigned += annual;
+      continue;
+    }
+    const each = annual / targets.length;
+    for (const m of targets) months[m - 1] += each;
+  }
+  return { months: months.map((x) => round(x, 2)), unassigned: round(unassigned, 2) };
+}
+
+function yieldDistribution(views) {
+  const edges = [0, 2, 3, 3.5, 4, 4.5, 5, 6, Infinity];
+  const labels = ['〜2%', '2〜3%', '3〜3.5%', '3.5〜4%', '4〜4.5%', '4.5〜5%', '5〜6%', '6%〜'];
+  const buckets = labels.map((label) => ({ label, count: 0, cost: 0 }));
+  for (const v of views) {
+    if (v.metrics.shares <= EPSILON) continue;
+    const y = v.metrics.yield_on_cost;
+    for (let i = 0; i < labels.length; i += 1) {
+      if (y >= edges[i] && y < edges[i + 1]) {
+        buckets[i].count += 1;
+        buckets[i].cost = round(buckets[i].cost + v.metrics.cost, 2);
+        break;
+      }
+    }
+  }
+  return buckets;
+}
+
+function undatedTransactions(store) {
+  const positionById = new Map(store.doc.positions.map((p) => [p.id, p]));
+  const stockById = new Map(store.doc.stocks.map((s) => [s.id, s]));
+  return store.doc.transactions
+    .filter((t) => !t.trade_date)
+    .map((t) => {
+      const position = positionById.get(t.position_id);
+      const stock = position ? stockById.get(position.stock_id) : null;
+      return {
+        id: t.id, position_id: t.position_id,
+        code: stock ? stock.code : '', name: stock ? stock.name : '',
+      };
+    })
+    .sort((a, b) => String(a.code).localeCompare(String(b.code)));
+}
+
+export function dashboard(store) {
+  const views = listStockViews(store);
+  const held = views.filter((v) => v.metrics.shares > EPSILON);
+  const settings = store.getSettings();
+
+  const summary = aggregate(views.map((v) => v.metrics));
+  summary.stock_count = views.length;
+  summary.position_count = views.reduce((sum, v) => sum + v.position_count, 0);
+  summary.priced_count = held.filter((v) => v.market_price).length;
+
+  const bySector = groupBreakdown(views, 'sector');
+  const sectorRule = evaluateSectors(bySector, settings.max_sector_pct);
+  const dividendRule = evaluateStockDividends(views, settings.max_stock_dividend_pct);
+
+  const brief = (v) => ({
+    id: v.id, code: v.code, name: v.name, sector: v.sector,
+    classification: v.classification,
+    annual_dividend: v.metrics.annual_dividend,
+    yield_on_cost: v.metrics.yield_on_cost,
+    cost: v.metrics.cost,
+    unrealized_pl_pct: v.metrics.unrealized_pl_pct,
+    market_price: v.market_price,
+  });
+
+  return {
+    summary,
+    rules: { sector: sectorRule, stock_dividend: dividendRule },
+    by_sector: bySector,
+    by_classification: groupBreakdown(views, 'classification'),
+    calendar: monthlyCalendar(held),
+    yield_distribution: yieldDistribution(views),
+    top_dividend: [...held]
+      .sort((a, b) => b.metrics.annual_dividend - a.metrics.annual_dividend)
+      .slice(0, 10).map(brief),
+    top_yield: [...held]
+      .sort((a, b) => b.metrics.yield_on_cost - a.metrics.yield_on_cost)
+      .slice(0, 10).map(brief),
+    needs_attention: {
+      no_fiscal_month: held.filter((v) => !v.fiscal_month)
+        .map((v) => ({ id: v.id, code: v.code, name: v.name })),
+      no_market_price: held.filter((v) => !v.market_price)
+        .map((v) => ({ id: v.id, code: v.code, name: v.name })),
+      undated_transactions: undatedTransactions(store),
+      sector_over_limit: sectorRule.over.map((r) => ({
+        label: r.label, share_pct: r.share_pct, headroom: r.headroom,
+      })),
+      dividend_over_limit: dividendRule.over.map((r) => ({
+        id: r.id, code: r.code, name: r.name,
+        share_pct: r.share_pct, headroom: r.headroom, headroom_shares: r.headroom_shares,
+      })),
+    },
+  };
+}

@@ -330,61 +330,6 @@ body {
 }
 .card-note { margin: 0; font-size: 11px; color: var(--text-3); }
 
-/* -------------------------------------------------------- トグルスイッチ */
-
-.switch {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  appearance: none;
-  background: none;
-  border: none;
-  padding: 2px;
-  cursor: pointer;
-  font-family: var(--sans);
-  flex: none;
-}
-.switch-track {
-  position: relative;
-  width: 38px;
-  height: 21px;
-  border-radius: 999px;
-  background: var(--surface-3);
-  border: 1px solid var(--border-strong);
-  transition: background .16s, border-color .16s;
-}
-.switch-knob {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 15px;
-  height: 15px;
-  border-radius: 50%;
-  background: var(--text-3);
-  transition: transform .16s, background .16s;
-}
-.switch[aria-checked="true"] .switch-track {
-  background: var(--gold);
-  border-color: var(--gold);
-}
-.switch[aria-checked="true"] .switch-knob {
-  transform: translateX(17px);
-  background: var(--on-gold);
-}
-.switch-label {
-  font-size: 11px;
-  color: var(--text-3);
-  letter-spacing: .04em;
-  min-width: 3.4em;
-  text-align: left;
-}
-.switch[aria-checked="true"] .switch-label { color: var(--text-2); }
-.switch:hover .switch-track { border-color: var(--gold-dim); }
-.switch:focus-visible { outline: 2px solid var(--gold-dim); outline-offset: 3px; border-radius: 4px; }
-
-/* スイッチを card-head の右端に寄せる */
-.card-head .switch { margin-left: auto; }
-
 .grid { display: grid; gap: 16px; }
 .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }

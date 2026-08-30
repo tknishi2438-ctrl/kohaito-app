@@ -2,13 +2,8 @@
 
 import { api } from '../lib/api.js';
 import * as charts from '../lib/charts.js';
-import { delegate, esc, modal, qs, toast } from '../lib/dom.js';
+import { delegate, esc, modal, toast } from '../lib/dom.js';
 import { classification, classificationColor, pct, signClass, yen } from '../lib/format.js';
-import * as prefs from '../lib/prefs.js';
-
-// 配当受取カレンダーの表示・非表示。既定は非表示で、スイッチで開く。
-const CALENDAR_PREF = 'showCalendar';
-
 function summaryCard(label, value, { cls = '', sub = '' } = {}) {
   return `
     <div class="summary-cell">
@@ -38,7 +33,7 @@ function attentionNotice(attention, summary) {
     items.push(`取引月が未設定の取引が <b>${attention.undated_transactions.length}</b> 件あります`);
   }
   if (attention.no_fiscal_month.length) {
-    items.push(`決算月が未設定の銘柄が <b>${attention.no_fiscal_month.length}</b> 件あります(配当カレンダーに反映されません)`);
+    items.push(`決算月が未設定の銘柄が <b>${attention.no_fiscal_month.length}</b> 件あります(権利確定月が表示されません)`);
   }
   if (attention.no_market_price.length) {
     items.push(`株価が未取得の銘柄が <b>${attention.no_market_price.length}</b> 件あります`);
@@ -248,8 +243,6 @@ export async function render(root, { navigate }) {
 
   const s = data.summary;
   const hasPrices = s.valued_cost > 0;
-  const calendarTotal = data.calendar.months.reduce((a, b) => a + b, 0);
-  const showCalendar = prefs.getBool(CALENDAR_PREF, false);
 
   root.innerHTML = `
     ${attentionNotice(data.needs_attention, s)}
@@ -269,21 +262,6 @@ export async function render(root, { navigate }) {
       ${s.realized_pl
     ? summaryCard('実現損益', yen(s.realized_pl, { sign: true }), { cls: signClass(s.realized_pl), sub: '売却済み分' })
     : ''}
-    </div>
-
-    <div class="card">
-      <div class="card-head" style="margin-bottom:0">
-        <h3 class="card-title">配当受取カレンダー</h3>
-        <p class="card-note">
-          決算月から中間・期末に半分ずつ振り分けた見込み額 ·
-          年間 ${yen(calendarTotal)}
-          ${data.calendar.unassigned ? ` · 決算月未設定 ${yen(data.calendar.unassigned)} は未計上` : ''}
-        </p>
-        ${prefs.switchHtml('toggle-calendar', showCalendar, '配当受取カレンダーの表示を切り替える')}
-      </div>
-      <div data-calendar-body style="margin-top:14px" ${showCalendar ? '' : 'hidden'}>
-        ${charts.monthlyCalendar(data.calendar.months)}
-      </div>
     </div>
 
     ${rulesCard(data.rules)}
@@ -358,12 +336,6 @@ export async function render(root, { navigate }) {
 
   delegate(root, 'click', {
     'open-stock': (target) => navigate(`stock/${target.dataset.id}`),
-    'toggle-calendar': (target) => {
-      const on = prefs.toggleBool(CALENDAR_PREF, false);
-      target.setAttribute('aria-checked', String(on));
-      qs('.switch-label', target).textContent = on ? '表示中' : '非表示';
-      qs('[data-calendar-body]', root).hidden = !on;
-    },
     'edit-sector-limit': () => limitForm({
       title: 'セクター集中度の上限',
       name: 'max_sector_pct',

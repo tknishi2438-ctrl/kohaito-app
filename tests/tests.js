@@ -408,7 +408,7 @@ describe('ポートフォリオの組み立て', () => {
     expect(view.metrics.annual_dividend).toBe(24 * 40);
   });
 
-  it('ダッシュボードの合計と配当カレンダー', () => {
+  it('ダッシュボードの合計', () => {
     const store = newStore();
     const { position } = seed(store, {
       code: '8058', name: '三菱商事', sector: '卸売',
@@ -420,19 +420,13 @@ describe('ポートフォリオの組み立て', () => {
     expect(data.summary.total_cost).toBe(20000);
     expect(data.summary.annual_dividend).toBe(1000);
     expect(data.summary.weighted_yield).toBeCloseTo(5.0, 4);
-    expect(data.calendar.months[2]).toBeCloseTo(500, 2);
-    expect(data.calendar.months[8]).toBeCloseTo(500, 2);
-    expect(data.calendar.unassigned).toBe(0);
   });
 
-  it('決算月がなければ未計上に積む', () => {
+  it('決算月がない銘柄は要対応として拾う', () => {
     const store = newStore();
     const { position } = seed(store, { dividend_per_share: 100 });
     store.createTransaction({ position_id: position.id, type: 'BUY', trade_date: '2024-01-01', shares: 10, price: 1000 });
-    const data = dashboard(store);
-    expect(data.calendar.unassigned).toBe(1000);
-    expect(data.calendar.months.reduce((a, b) => a + b, 0)).toBe(0);
-    expect(data.needs_attention.no_fiscal_month.length).toBe(1);
+    expect(dashboard(store).needs_attention.no_fiscal_month.length).toBe(1);
   });
 
   it('売り切った銘柄は保有に数えない', () => {

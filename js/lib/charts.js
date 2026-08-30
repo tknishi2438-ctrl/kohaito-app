@@ -22,8 +22,6 @@ export function color(index) {
   return colors[index % colors.length];
 }
 
-const MONTH_LABELS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
-
 function niceMax(value) {
   if (value <= 0) return 1;
   const magnitude = 10 ** Math.floor(Math.log10(value));
@@ -123,15 +121,6 @@ export function bars(items, { width = 720, height = 240, unit = compact, highlig
     <line class="axis-line" x1="${padLeft}" y1="${padTop + plotH}" x2="${width - padRight}" y2="${padTop + plotH}" />
     ${rects}
   </svg>`;
-}
-
-/** 月別配当カレンダー(12 か月固定の棒グラフ)。 */
-export function monthlyCalendar(months) {
-  const now = new Date().getMonth();
-  return bars(
-    months.map((value, i) => ({ label: MONTH_LABELS[i], value })),
-    { height: 200, unit: (v) => `${compact(v)}円`, highlight: now },
-  );
 }
 
 /** 横棒ランキング。items: [{label, value, sub?}] */

@@ -139,27 +139,6 @@ function groupBreakdown(views, key) {
     .sort((a, b) => b.cost - a.cost);
 }
 
-/**
- * 決算月から中間・期末の受取見込みを月別に振り分ける。
- * 決算月が未設定の銘柄は unassigned に積む。
- */
-function monthlyCalendar(views) {
-  const months = new Array(12).fill(0);
-  let unassigned = 0;
-  for (const v of views) {
-    const annual = v.metrics.annual_dividend;
-    if (annual <= 0) continue;
-    const targets = dividendMonths(v.fiscal_month, Boolean(v.pays_interim ?? 1));
-    if (!targets.length) {
-      unassigned += annual;
-      continue;
-    }
-    const each = annual / targets.length;
-    for (const m of targets) months[m - 1] += each;
-  }
-  return { months: months.map((x) => round(x, 2)), unassigned: round(unassigned, 2) };
-}
-
 function yieldDistribution(views) {
   const edges = [0, 2, 3, 3.5, 4, 4.5, 5, 6, Infinity];
   const labels = ['〜2%', '2〜3%', '3〜3.5%', '3.5〜4%', '4〜4.5%', '4.5〜5%', '5〜6%', '6%〜'];
@@ -223,7 +202,6 @@ export function dashboard(store) {
     rules: { sector: sectorRule, stock_dividend: dividendRule },
     by_sector: bySector,
     by_classification: groupBreakdown(views, 'classification'),
-    calendar: monthlyCalendar(held),
     yield_distribution: yieldDistribution(views),
     top_dividend: [...held]
       .sort((a, b) => b.metrics.annual_dividend - a.metrics.annual_dividend)

@@ -29,7 +29,26 @@ function stamp() {
   return new Date().toISOString().slice(0, 10).replace(/-/g, '');
 }
 
+/**
+ * 配信されている URL から接続先を推測して初期値にする。
+ * スマホでの設定時に、トークンを貼るだけで済むようにするため。
+ *   https://<ユーザー名>.github.io/<何か>-app/  →  <ユーザー名> / <何か>-data
+ */
+function guessConfig() {
+  const host = location.hostname.match(/^([\w-]+)\.github\.io$/);
+  const segment = location.pathname.split('/').filter(Boolean)[0] || '';
+  return {
+    owner: host ? host[1] : '',
+    repo: segment.endsWith('-app') ? `${segment.slice(0, -4)}-data` : '',
+    path: 'portfolio.json',
+    branch: 'main',
+  };
+}
+
 function connectionForm(current, onDone) {
+  const guess = guessConfig();
+  const value = (name) => esc(current?.[name] ?? guess[name] ?? '');
+
   modal({
     title: '保存先(GitHub)の設定',
     submitLabel: '接続する',
@@ -37,31 +56,37 @@ function connectionForm(current, onDone) {
     body: `
       <p class="hint" style="margin:0 0 16px">
         データを GitHub の<b style="color:var(--text-2)">非公開</b>リポジトリに保存します。
-        設定すると、スマホでも Mac でも同じデータを読み書きできます。
+        端末ごとに一度だけ設定が必要です。<br>
+        <b style="color:var(--text-2)">下の欄はこの画面の URL から推測して埋めてあります。
+        アクセストークンだけ貼り付けてください。</b>
       </p>
       <div class="field-row">
         ${['owner', 'repo'].map((name) => `
           <div class="field">
             <label>${name === 'owner' ? 'GitHub のユーザー名' : 'データ用リポジトリ名'}</label>
             <input class="input" name="${name}" required
-                   value="${esc(current?.[name] ?? '')}"
+                   autocapitalize="off" autocorrect="off" spellcheck="false"
+                   value="${value(name)}"
                    placeholder="${name === 'owner' ? 'your-account' : 'kohaito-data'}">
           </div>`).join('')}
       </div>
       <div class="field-row">
         <div class="field">
           <label>ファイル名</label>
-          <input class="input" name="path" value="${esc(current?.path ?? 'portfolio.json')}" required>
+          <input class="input" name="path" value="${value('path')}" required
+                 autocapitalize="off" autocorrect="off" spellcheck="false">
         </div>
         <div class="field">
           <label>ブランチ</label>
-          <input class="input" name="branch" value="${esc(current?.branch ?? 'main')}" required>
+          <input class="input" name="branch" value="${value('branch')}" required
+                 autocapitalize="off" autocorrect="off" spellcheck="false">
         </div>
       </div>
       <div class="field">
         <label>アクセストークン</label>
         <input class="input" type="password" name="token" required autocomplete="off"
-               value="${esc(current?.token ?? '')}" placeholder="github_pat_...">
+               autocapitalize="off" autocorrect="off" spellcheck="false"
+               value="${esc(current?.token ?? '')}" placeholder="github_pat_... を貼り付け">
         <p class="hint">
           GitHub の <span class="mono">Settings → Developer settings → Personal access tokens
           → Fine-grained tokens</span> で作成します。<br>

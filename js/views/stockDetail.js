@@ -52,7 +52,7 @@ function positionBlock(position, stock) {
         <div class="table-wrap" style="border:none;border-radius:0">
           <table class="data">
             <thead><tr>
-              <th style="width:110px">取引日</th><th style="width:70px">種別</th>
+              <th style="width:90px">取引月</th><th style="width:70px">種別</th>
               <th class="r">株数</th><th class="r">単価</th><th class="r">受渡金額</th>
               <th class="r">手数料</th><th>メモ</th><th class="r">操作</th>
             </tr></thead>

@@ -45,7 +45,7 @@ export async function render(root, { navigate }) {
     root.querySelector('[data-table]').innerHTML = rows.length ? `
       <table class="data">
         <thead><tr>
-          <th style="width:110px">取引日</th><th style="width:70px">種別</th>
+          <th style="width:90px">取引月</th><th style="width:70px">種別</th>
           <th style="width:60px">コード</th><th>銘柄</th><th>ロット</th>
           <th class="r">株数</th><th class="r">単価</th><th class="r">受渡金額</th>
           <th>メモ</th><th class="r">操作</th>
@@ -77,7 +77,7 @@ export async function render(root, { navigate }) {
 
   root.innerHTML = `
     <div class="toolbar">
-      <input class="input search" id="ledgerSearch" placeholder="銘柄・メモ・日付で検索" value="${esc(state.search)}">
+      <input class="input search" id="ledgerSearch" placeholder="銘柄・メモ・年月で検索" value="${esc(state.search)}">
       <div class="seg">
         ${[['ALL', 'すべて'], ['BUY', '買付'], ['SELL', '売却'], ['SPLIT', '分割']].map(([v, l]) =>
     `<button data-action="type" data-value="${v}" class="${state.type === v ? 'active' : ''}">${l}</button>`).join('')}

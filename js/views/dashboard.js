@@ -35,7 +35,7 @@ function attentionNotice(attention, summary) {
     );
   }
   if (attention.undated_transactions.length) {
-    items.push(`取引日が未設定の取引が <b>${attention.undated_transactions.length}</b> 件あります`);
+    items.push(`取引月が未設定の取引が <b>${attention.undated_transactions.length}</b> 件あります`);
   }
   if (attention.no_fiscal_month.length) {
     items.push(`決算月が未設定の銘柄が <b>${attention.no_fiscal_month.length}</b> 件あります(配当カレンダーに反映されません)`);

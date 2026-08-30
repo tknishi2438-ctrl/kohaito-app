@@ -2,7 +2,7 @@
 
 import { api } from './api.js';
 import { confirmDialog, esc, modal, qs, toast } from './dom.js';
-import { today, TX_LABEL } from './format.js';
+import { normalizeMonth, thisMonth, TX_LABEL } from './format.js';
 
 const CLASSIFICATIONS = [
   ['K', 'K — 景気敏感株'],
@@ -141,8 +141,10 @@ export function transactionForm(tx, positionId, onDone) {
         ${['BUY', 'SELL', 'SPLIT'].map((t) => `<button type="button" data-type="${t}"
           class="${t === type ? 'active' : ''}">${TX_LABEL[t]}</button>`).join('')}
       </div><input type="hidden" name="type" value="${type}">`)}
-      ${field('取引日', input('trade_date', tx?.trade_date ?? (isNew ? today() : ''), 'type="date"'),
-    '不明な場合は空にできます。空の取引は台帳の先頭(最も古い)として扱われます。')}
+      ${field('取引月', input('trade_date',
+    normalizeMonth(tx?.trade_date) ?? (isNew ? thisMonth() : ''), 'type="month"'),
+    '年と月まで記録します。不明な場合は空にできます。'
+    + '空の取引は台帳の先頭(最も古い)として扱われます。')}
       <div data-trade-fields ${type === 'SPLIT' ? 'hidden' : ''}>${tradeFields}</div>
       <div data-split-fields ${type === 'SPLIT' ? '' : 'hidden'}>${splitFields}</div>
       ${field('メモ', input('note', tx?.note))}`,

@@ -33,9 +33,13 @@ export function num(value, digits = 2) {
   return Number(value).toLocaleString('ja-JP', { maximumFractionDigits: digits });
 }
 
+/**
+ * 取引月の表示。取引日は年月(YYYY-MM)で持つ。
+ * 以前の形式(YYYY-MM-DD)が残っていても年月だけを見せる。
+ */
 export function date(value) {
-  if (!value) return '日付未設定';
-  return String(value).replaceAll('-', '/');
+  if (!value) return '未設定';
+  return String(value).slice(0, 7).replaceAll('-', '/');
 }
 
 export function dateTime(value) {
@@ -48,10 +52,22 @@ export function signClass(value) {
   return value > 0 ? 'pos' : value < 0 ? 'neg' : '';
 }
 
-export function today() {
+/** 入力欄の初期値に使う今月(YYYY-MM)。 */
+export function thisMonth() {
   const d = new Date();
-  const p = (n) => String(n).padStart(2, '0');
-  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/**
+ * 取引月を YYYY-MM に揃える。
+ * 「2025/04」「2025-04-15」など、どの書き方で来ても受け取れるようにする。
+ */
+export function normalizeMonth(value) {
+  const text = String(value ?? '').trim();
+  if (!text) return null;
+  const m = text.match(/^(\d{4})[-/](\d{1,2})/);
+  if (!m) return null;
+  return `${m[1]}-${m[2].padStart(2, '0')}`;
 }
 
 export const TX_LABEL = { BUY: '買付', SELL: '売却', SPLIT: '分割' };

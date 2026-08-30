@@ -7,6 +7,7 @@ import {
 import { evaluateSectors, evaluateStockDividends, headroom } from '../js/lib/rules.js';
 import { Store } from '../js/lib/store.js';
 import { fromBase64, toBase64 } from '../js/lib/github.js';
+import { date as formatDate, normalizeMonth } from '../js/lib/format.js';
 import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js';
 
 const tx = (id, type, date, extra = {}) => ({ id, type, trade_date: date, ...extra });
@@ -533,5 +534,82 @@ describe('保存するドキュメントの形', () => {
 
   it('別形式のファイルは受け付けない', () => {
     expect(() => new Store({ format: 'something-else' })).toThrow('データ形式');
+  });
+});
+
+
+// ------------------------------------------------------------ 取引月の扱い
+
+describe('取引月(年月)の正規化', () => {
+  it('スプレッドシート形式(2025/04)を受け取れる', () => {
+    expect(normalizeMonth('2025/04')).toBe('2025-04');
+  });
+
+  it('1桁の月を 0 詰めする', () => {
+    expect(normalizeMonth('2025/4')).toBe('2025-04');
+  });
+
+  it('日付つき(YYYY-MM-DD)は年月に丸める', () => {
+    expect(normalizeMonth('2024-06-15')).toBe('2024-06');
+  });
+
+  it('空や不正な値は未設定として扱う', () => {
+    expect(normalizeMonth('')).toBeNull();
+    expect(normalizeMonth(null)).toBeNull();
+    expect(normalizeMonth('よくわからない')).toBeNull();
+  });
+
+  it('表示は年/月にする', () => {
+    expect(formatDate('2025-04')).toBe('2025/04');
+    expect(formatDate('2024-06-15')).toBe('2024/06');
+    expect(formatDate(null)).toBe('未設定');
+  });
+});
+
+describe('取引月の保存', () => {
+  const setup = () => {
+    const store = new Store();
+    const stock = store.createStock({ code: '8058', name: '三菱商事' });
+    const position = store.createPosition({ stock_id: stock.id });
+    return { store, position };
+  };
+
+  it('どの書き方で入れても年月で保存される', () => {
+    const { store, position } = setup();
+    const tx = store.createTransaction({
+      position_id: position.id, type: 'BUY', trade_date: '2025/4', shares: 5, price: 100,
+    });
+    expect(tx.trade_date).toBe('2025-04');
+  });
+
+  it('日付つきで入れても年月に丸められる', () => {
+    const { store, position } = setup();
+    const tx = store.createTransaction({
+      position_id: position.id, type: 'BUY', trade_date: '2024-06-15', shares: 5, price: 100,
+    });
+    expect(tx.trade_date).toBe('2024-06');
+  });
+
+  it('同じ月の取引は登録順に畳み込む', () => {
+    const { store, position } = setup();
+    store.createTransaction({
+      position_id: position.id, type: 'BUY', trade_date: '2025-04', shares: 10, price: 1000,
+    });
+    store.createTransaction({
+      position_id: position.id, type: 'SPLIT', trade_date: '2025-04', split_from: 1, split_to: 2,
+    });
+    expect(computePosition(store.listTransactions(position.id)).shares).toBe(20);
+  });
+
+  it('月の前後で並び順が決まる', () => {
+    const { store, position } = setup();
+    // あとの月を先に登録しても、古い月から順に処理される
+    store.createTransaction({
+      position_id: position.id, type: 'SPLIT', trade_date: '2025-06', split_from: 1, split_to: 2,
+    });
+    store.createTransaction({
+      position_id: position.id, type: 'BUY', trade_date: '2025-01', shares: 10, price: 1000,
+    });
+    expect(computePosition(store.listTransactions(position.id)).shares).toBe(20);
   });
 });

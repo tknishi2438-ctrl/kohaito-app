@@ -1,9 +1,9 @@
 // 保有一覧: 並べ替え・絞り込みができる銘柄テーブル。
 
-import { api } from '../lib/api.js?v=202608302308';
-import { delegate, esc, toast } from '../lib/dom.js?v=202608302308';
-import { stockForm } from '../lib/forms.js?v=202608302308';
-import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202608302308';
+import { api } from '../lib/api.js?v=202608302325';
+import { delegate, esc, toast } from '../lib/dom.js?v=202608302325';
+import { stockForm } from '../lib/forms.js?v=202608302325';
+import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202608302325';
 
 const COLUMNS = [
   { key: 'code', label: 'コード', sort: (a, b) => a.code.localeCompare(b.code) },
@@ -58,6 +58,26 @@ function cellHtml(view, key) {
     case 'current_yield': return `<td class="r">${m.current_yield ? pct(m.current_yield) : '<span class="muted">—</span>'}</td>`;
     default: return '<td></td>';
   }
+}
+
+/**
+ * 絞り込みボタン。件数を添えて、どれを選ぶと何件になるかを見せる。
+ * 売却して保有ゼロになった銘柄が無いうちは「保有中」と「すべて」は同数になる。
+ */
+function filterButtons(views) {
+  const counts = {
+    held: views.filter((v) => v.metrics.shares > 0).length,
+    all: views.length,
+    k: views.filter((v) => v.classification === 'K').length,
+    d: views.filter((v) => v.classification === 'D').length,
+  };
+  return [['held', '保有中'], ['all', 'すべて'], ['k', '景気敏感'], ['d', 'ディフェンシブ']]
+    .map(([key, label]) => `
+      <button data-action="filter" data-value="${key}"
+              class="${state.filter === key ? 'active' : ''}">
+        ${label} <span class="seg-count">${counts[key]}</span>
+      </button>`)
+    .join('');
 }
 
 function apply(views) {
@@ -137,9 +157,7 @@ export async function render(root, { navigate }) {
       <input class="input search" data-action="noop" id="searchBox" placeholder="コード・銘柄名・セクターで検索"
              value="${esc(state.search)}">
       <div class="seg">
-        ${[['held', '保有中'], ['all', 'すべて'],
-    ['k', '景気敏感'], ['d', 'ディフェンシブ']].map(([v, l]) =>
-    `<button data-action="filter" data-value="${v}" class="${state.filter === v ? 'active' : ''}">${l}</button>`).join('')}
+        ${filterButtons(views)}
       </div>
       <span class="spacer"></span>
       <button class="btn btn-primary" data-action="add">+ 銘柄を追加</button>

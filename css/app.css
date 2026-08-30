@@ -671,6 +671,14 @@ table.data td.cell-note {
 }
 .seg button + button { border-left: 1px solid var(--border-strong); }
 .seg button.active { background: var(--surface-3); color: var(--gold); font-weight: 700; }
+/* 絞り込みボタンに添える件数 */
+.seg-count {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text-3);
+  margin-left: 2px;
+}
+.seg button.active .seg-count { color: var(--gold-dim); }
 
 /* -------------------------------------------------------------- トースト */
 

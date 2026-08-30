@@ -1,9 +1,9 @@
 // ダッシュボード: 資産サマリー・分散ルール・構成比・要対応の一覧。
 
-import { api } from '../lib/api.js?v=202608302154';
-import * as charts from '../lib/charts.js?v=202608302154';
-import { delegate, esc, modal, toast } from '../lib/dom.js?v=202608302154';
-import { classification, classificationColor, pct, signClass, yen } from '../lib/format.js?v=202608302154';
+import { api } from '../lib/api.js?v=202608302253';
+import * as charts from '../lib/charts.js?v=202608302253';
+import { delegate, esc, modal, toast } from '../lib/dom.js?v=202608302253';
+import { classification, pct, signClass, yen } from '../lib/format.js?v=202608302253';
 
 function summaryCard(label, value, { cls = '', sub = '' } = {}) {
   return `
@@ -29,6 +29,12 @@ function attentionNotice(attention, summary) {
       + `（${names}${dividendOver.length > 3 ? ' ほか' : ''}）`,
     );
   }
+  (attention.defensive_short || []).forEach((d) => {
+    items.push(
+      `ディフェンシブ株が <b>${d.share_pct.toFixed(1)}%</b> で下限 ${d.min_pct}% を下回っています`
+      + `（あと ${yen(d.shortfall)} 買い増すと届きます）`,
+    );
+  });
   if (attention.undated_transactions.length) {
     items.push(`取引月が未設定の取引が <b>${attention.undated_transactions.length}</b> 件あります`);
   }
@@ -134,6 +140,57 @@ function dividendRuleBlock(rule) {
     </div>`;
 }
 
+/**
+ * ディフェンシブ株の比率。上の 2 つと違い「◯% 以上を保つ」下限のルールで、
+ * 守りの厚みを見るため投資額の比率で判定する。
+ */
+function defensiveRuleBlock(rule) {
+  if (!rule || !rule.total_cost) return '';
+
+  const verdict = rule.passing
+    ? `<span class="badge buy">適合</span> ディフェンシブ株が ${rule.defensive_share_pct.toFixed(1)}%`
+    : `<span class="badge sell">不足</span> ディフェンシブ株が ${rule.defensive_share_pct.toFixed(1)}%`
+      + `（下限まで ${(rule.min_pct - rule.defensive_share_pct).toFixed(1)} ポイント）`;
+
+  // 余力欄は幅が狭いので短く。意味は下の説明文で補う
+  const note = rule.passing ? `余地 ${yen(rule.cyclical_room)}` : `あと ${yen(rule.shortfall)}`;
+
+  return `
+    <div class="rule-block">
+      <div class="rule-head">
+        <h4>ディフェンシブ株の比率</h4>
+        <span class="rule-limit">${rule.min_pct}% 以上を保つ · 投資額ベース</span>
+        <button class="btn btn-sm btn-ghost" data-action="edit-defensive-limit">下限を変更</button>
+      </div>
+      <p class="rule-verdict">
+        ${verdict}
+        <span class="muted" style="margin-left:8px">
+          ディフェンシブ ${rule.defensive_count} 銘柄 / 景気敏感 ${rule.cyclical_count} 銘柄
+        </span>
+      </p>
+      ${charts.limitBars([
+    {
+      label: 'ディフェンシブ株',
+      value: rule.defensive_share_pct,
+      status: rule.passing ? 'ok' : 'over',
+      note,
+    },
+    {
+      label: '景気敏感株',
+      value: rule.cyclical_share_pct,
+      status: 'neutral',
+      note: '',
+    },
+  ], { limit: rule.min_pct, scaleMax: 100 })}
+      <p class="hint">
+        点線は下限です。ディフェンシブ株の割合が<b style="color:var(--text-2)">この線より右</b>にあれば適合です。
+        ${rule.passing
+    ? '「余地 ◯円」は、下限を割らずに<b style="color:var(--text-2)">景気敏感株</b>を買い増せる金額です。'
+    : '「あと ◯円」は、下限に届くまでに必要な<b style="color:var(--text-2)">ディフェンシブ株</b>の投資額です。'}
+      </p>
+    </div>`;
+}
+
 function rulesCard(rules) {
   if (!rules) return '';
   return `
@@ -144,30 +201,8 @@ function rulesCard(rules) {
       </div>
       ${sectorRuleBlock(rules.sector)}
       ${dividendRuleBlock(rules.stock_dividend)}
+      ${defensiveRuleBlock(rules.defensive)}
     </div>`;
-}
-
-/**
- * 景気敏感株とディフェンシブ株の内訳。守りの比率が一目で分かるよう、
- * 構成比だけでなく銘柄数と利回りも並べる。
- */
-function classificationBreakdown(rows) {
-  if (!rows.length) return '';
-  return `<table class="data" style="margin-top:14px">
-    <thead><tr>
-      <th>分類</th><th class="r">銘柄数</th><th class="r">投資額</th>
-      <th class="r">構成比</th><th class="r">利回り</th>
-    </tr></thead>
-    <tbody>${rows.map((r) => `
-      <tr>
-        <td><span class="badge ${String(r.label).toLowerCase()}">${esc(r.label)}</span>
-            <span style="margin-left:8px">${esc(classification(r.label).label)}</span></td>
-        <td class="r">${r.count}</td>
-        <td class="r">${yen(r.cost)}</td>
-        <td class="r">${pct(r.share_pct, { digits: 1 })}</td>
-        <td class="r teal">${pct(r.yield_pct)}</td>
-      </tr>`).join('')}
-    </tbody></table>`;
 }
 
 function rankTable(rows, valueKey, valueFormat) {
@@ -269,22 +304,6 @@ export async function render(root, { navigate }) {
 
     ${rulesCard(data.rules)}
 
-    <div class="card">
-      <div class="card-head">
-        <h3 class="card-title">景気敏感 / ディフェンシブ</h3>
-        <p class="card-note">投資額ベース</p>
-      </div>
-      ${charts.donut(
-    data.by_classification.map((r) => ({
-      label: classification(r.label).short,
-      value: r.cost,
-      color: classificationColor(r.label),   // K = 赤 / D = 青 をバッジと揃える
-    })),
-    { size: 160, thickness: 24, unit: (v) => `${charts.compact(v)}円` },
-  )}
-      ${classificationBreakdown(data.by_classification)}
-    </div>
-
     <div class="grid grid-2" style="margin-top:16px">
       <div class="card" style="margin-top:0">
         <div class="card-head">
@@ -312,6 +331,15 @@ export async function render(root, { navigate }) {
       hint: '年間配当に占める割合で判定します。既定は 20% です。',
       current: data.rules.sector.limit_pct,
       min: 1,
+      onDone: () => render(root, { navigate }),
+    }),
+    'edit-defensive-limit': () => limitForm({
+      title: 'ディフェンシブ株の下限',
+      name: 'min_defensive_pct',
+      label: '保つ割合の下限 (%)',
+      hint: '投資額に占める割合で判定します。既定は 50% です。',
+      current: data.rules.defensive.min_pct,
+      min: 0,
       onDone: () => render(root, { navigate }),
     }),
     'edit-dividend-limit': () => limitForm({

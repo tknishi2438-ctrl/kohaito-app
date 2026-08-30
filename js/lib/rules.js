@@ -7,6 +7,7 @@
 
 export const DEFAULT_MAX_SECTOR_PCT = 20;
 export const DEFAULT_MAX_STOCK_DIVIDEND_PCT = 3;
+export const DEFAULT_MIN_DEFENSIVE_PCT = 50;
 
 // 上限に近づいたら警告する閾値(上限に対する割合)
 const WARN_RATIO = 0.85;
@@ -128,5 +129,50 @@ export function evaluateStockDividends(views, limitPct = DEFAULT_MAX_STOCK_DIVID
     passing: over.length === 0,
     max_share_pct: round(Math.max(0, ...stocks.map((r) => r.share_pct)), 3),
     even_share_pct: stocks.length ? round(100 / stocks.length, 3) : 0,
+  };
+}
+
+
+// --------------------------------------------------- ディフェンシブ株の比率
+
+/**
+ * ディフェンシブ株(D)を一定割合以上に保てているかを見る。
+ *
+ * 上の 2 つが「◯% 以下に抑える」上限のルールなのに対し、これは
+ * 「◯% 以上を保つ」下限のルール。守りの厚みを見るためのものなので、
+ * 配当ではなく**投資額**の比率で判定する。
+ */
+export function evaluateDefensive(rows, minPct = DEFAULT_MIN_DEFENSIVE_PCT) {
+  const min = Number(minPct);
+  const total = rows.reduce((sum, r) => sum + r.cost, 0);
+  const find = (label) => rows.find((r) => String(r.label).toUpperCase() === label);
+  const defensive = find('D');
+  const cyclical = find('K');
+
+  const cost = defensive ? defensive.cost : 0;
+  const share = total > 0 ? (cost / total) * 100 : 0;
+  const ratio = min / 100;
+
+  // 不足しているとき: ディフェンシブ株をあといくら買えば下限に届くか
+  //   (D + x) / (T + x) >= min  =>  x >= (min*T - D) / (1 - min)
+  const shortfall = ratio < 1 && total > 0
+    ? Math.max(0, (ratio * total - cost) / (1 - ratio))
+    : 0;
+
+  // 満たしているとき: 景気敏感株をあといくら買っても下限を割らないか
+  //   D / (T + y) >= min  =>  y <= D/min - T
+  const cyclicalRoom = ratio > 0 && total > 0 ? Math.max(0, cost / ratio - total) : 0;
+
+  return {
+    min_pct: min,
+    total_cost: round(total, 2),
+    defensive_cost: round(cost, 2),
+    defensive_share_pct: round(share, 2),
+    defensive_count: defensive ? defensive.count : 0,
+    cyclical_share_pct: cyclical ? round((cyclical.cost / (total || 1)) * 100, 2) : 0,
+    cyclical_count: cyclical ? cyclical.count : 0,
+    passing: share >= min,
+    shortfall: round(shortfall, 2),      // 不足時: 買い増すべきディフェンシブ株の額
+    cyclical_room: round(cyclicalRoom, 2), // 充足時: 買える景気敏感株の額
   };
 }

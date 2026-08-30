@@ -77,24 +77,11 @@ export const TX_LABEL = { BUY: '買付', SELL: '売却', SPLIT: '分割' };
  * 景気敏感株とディフェンシブ株の比率は、ポートフォリオの守りの強さを示す。
  */
 export const CLASSIFICATION = {
-  K: {
-    label: '景気敏感株', short: '景気敏感', note: '景気の波を受けやすい業種',
-    colorVar: '--k-color',
-  },
-  D: {
-    label: 'ディフェンシブ株', short: 'ディフェンシブ', note: '景気に左右されにくい業種',
-    colorVar: '--d-color',
-  },
+  K: { label: '景気敏感株', short: '景気敏感', note: '景気の波を受けやすい業種' },
+  D: { label: 'ディフェンシブ株', short: 'ディフェンシブ', note: '景気に左右されにくい業種' },
 };
 
 export function classification(code) {
   return CLASSIFICATION[String(code || '').toUpperCase()]
-    ?? { label: String(code || '未分類'), short: String(code || '未分類'), note: '', colorVar: null };
-}
-
-/** 分類の表示色を CSS 変数から取り出す(テーマの切り替えに追従させるため)。 */
-export function classificationColor(code) {
-  const { colorVar } = classification(code);
-  if (!colorVar) return null;
-  return getComputedStyle(document.documentElement).getPropertyValue(colorVar).trim() || null;
+    ?? { label: String(code || '未分類'), short: String(code || '未分類'), note: '' };
 }

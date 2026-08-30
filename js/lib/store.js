@@ -3,9 +3,11 @@
 // もとは SQLite + app/repository.py が担っていた層。保存先(GitHub / ブラウザ)は
 // persist.js が受け持ち、この層はデータの整合性だけに責任を持つ。
 
-import { computePosition, LedgerError, TX_TYPES, SPLIT } from './models.js?v=202608302154';
-import { normalizeMonth } from './format.js?v=202608302154';
-import { DEFAULT_MAX_SECTOR_PCT, DEFAULT_MAX_STOCK_DIVIDEND_PCT } from './rules.js?v=202608302154';
+import { computePosition, LedgerError, TX_TYPES, SPLIT } from './models.js?v=202608302253';
+import { normalizeMonth } from './format.js?v=202608302253';
+import {
+  DEFAULT_MAX_SECTOR_PCT, DEFAULT_MAX_STOCK_DIVIDEND_PCT, DEFAULT_MIN_DEFENSIVE_PCT,
+} from './rules.js?v=202608302253';
 
 export const FORMAT = 'khk-portfolio';
 export const VERSION = 2;
@@ -28,6 +30,7 @@ export function emptyDocument() {
     settings: {
       max_sector_pct: DEFAULT_MAX_SECTOR_PCT,
       max_stock_dividend_pct: DEFAULT_MAX_STOCK_DIVIDEND_PCT,
+      min_defensive_pct: DEFAULT_MIN_DEFENSIVE_PCT,
     },
     stocks: [],
     positions: [],
@@ -96,6 +99,13 @@ export class Store {
         throw new Invalid('配当集中度の上限は 0.1〜100% の範囲で指定してください');
       }
       this.doc.settings.max_stock_dividend_pct = v;
+    }
+    if ('min_defensive_pct' in patch) {
+      const v = Number(patch.min_defensive_pct);
+      if (!(v >= 0 && v <= 100)) {
+        throw new Invalid('ディフェンシブ株の下限は 0〜100% の範囲で指定してください');
+      }
+      this.doc.settings.min_defensive_pct = v;
     }
     return this.getSettings();
   }

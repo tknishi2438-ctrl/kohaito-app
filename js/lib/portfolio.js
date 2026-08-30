@@ -1,8 +1,8 @@
 // 銘柄・ポジション・取引を組み立てて、画面が必要とする形に整える層。
 // もとは Python の app/portfolio.py。
 
-import { aggregate, computePosition, dividendMonths, EPSILON, evaluate, sortTransactions } from './models.js?v=202608302154';
-import { evaluateSectors, evaluateStockDividends } from './rules.js?v=202608302154';
+import { aggregate, computePosition, dividendMonths, EPSILON, evaluate, sortTransactions } from './models.js?v=202608302253';
+import { evaluateDefensive, evaluateSectors, evaluateStockDividends } from './rules.js?v=202608302253';
 
 function round(value, digits) {
   const f = 10 ** digits;
@@ -166,8 +166,10 @@ export function dashboard(store) {
   summary.priced_count = held.filter((v) => v.market_price).length;
 
   const bySector = groupBreakdown(views, 'sector');
+  const byClassification = groupBreakdown(views, 'classification');
   const sectorRule = evaluateSectors(bySector, settings.max_sector_pct);
   const dividendRule = evaluateStockDividends(views, settings.max_stock_dividend_pct);
+  const defensiveRule = evaluateDefensive(byClassification, settings.min_defensive_pct);
 
   const brief = (v) => ({
     id: v.id, code: v.code, name: v.name, sector: v.sector,
@@ -181,9 +183,9 @@ export function dashboard(store) {
 
   return {
     summary,
-    rules: { sector: sectorRule, stock_dividend: dividendRule },
+    rules: { sector: sectorRule, stock_dividend: dividendRule, defensive: defensiveRule },
     by_sector: bySector,
-    by_classification: groupBreakdown(views, 'classification'),
+    by_classification: byClassification,
     top_dividend: [...held]
       .sort((a, b) => b.metrics.annual_dividend - a.metrics.annual_dividend)
       .slice(0, 10).map(brief),
@@ -197,6 +199,11 @@ export function dashboard(store) {
       sector_over_limit: sectorRule.over.map((r) => ({
         label: r.label, share_pct: r.share_pct, headroom: r.headroom,
       })),
+      defensive_short: defensiveRule.passing ? [] : [{
+        share_pct: defensiveRule.defensive_share_pct,
+        min_pct: defensiveRule.min_pct,
+        shortfall: defensiveRule.shortfall,
+      }],
       dividend_over_limit: dividendRule.over.map((r) => ({
         id: r.id, code: r.code, name: r.name,
         share_pct: r.share_pct, headroom: r.headroom, headroom_shares: r.headroom_shares,

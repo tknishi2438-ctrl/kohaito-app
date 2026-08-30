@@ -1,14 +1,16 @@
 // 計算ロジックのテスト。Python 版 tests/test_models.py・test_repository.py の移植。
 
-import { describe, it, expect } from './runner.js?v=202608302154';
+import { describe, it, expect } from './runner.js?v=202608302253';
 import {
   aggregate, computePosition, dividendMonths, evaluate, LedgerError,
-} from '../js/lib/models.js?v=202608302154';
-import { evaluateSectors, evaluateStockDividends, headroom } from '../js/lib/rules.js?v=202608302154';
-import { Store } from '../js/lib/store.js?v=202608302154';
-import { fromBase64, toBase64 } from '../js/lib/github.js?v=202608302154';
-import { date as formatDate, normalizeMonth } from '../js/lib/format.js?v=202608302154';
-import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202608302154';
+} from '../js/lib/models.js?v=202608302253';
+import {
+  evaluateDefensive, evaluateSectors, evaluateStockDividends, headroom,
+} from '../js/lib/rules.js?v=202608302253';
+import { Store } from '../js/lib/store.js?v=202608302253';
+import { fromBase64, toBase64 } from '../js/lib/github.js?v=202608302253';
+import { date as formatDate, normalizeMonth } from '../js/lib/format.js?v=202608302253';
+import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202608302253';
 
 const tx = (id, type, date, extra = {}) => ({ id, type, trade_date: date, ...extra });
 
@@ -644,5 +646,83 @@ describe('取引月の保存', () => {
       position_id: position.id, type: 'BUY', trade_date: '2025-01', shares: 10, price: 1000,
     });
     expect(computePosition(store.listTransactions(position.id)).shares).toBe(20);
+  });
+});
+
+// ------------------------------------------------- ディフェンシブ株の比率
+
+describe('ディフェンシブ株の下限', () => {
+  const rows = (dCost, kCost) => [
+    { label: 'D', cost: dCost, dividend: dCost * 0.04, count: 3, share_pct: 0, yield_pct: 4 },
+    { label: 'K', cost: kCost, dividend: kCost * 0.05, count: 5, share_pct: 0, yield_pct: 5 },
+  ];
+
+  it('下限を満たしていれば適合', () => {
+    const r = evaluateDefensive(rows(60000, 40000), 50);
+    expect(r.passing).toBe(true);
+    expect(r.defensive_share_pct).toBe(60);
+  });
+
+  it('下限を割っていれば不足', () => {
+    const r = evaluateDefensive(rows(40000, 60000), 50);
+    expect(r.passing).toBe(false);
+    expect(r.defensive_share_pct).toBe(40);
+  });
+
+  it('不足額を足すとちょうど下限になる', () => {
+    const r = evaluateDefensive(rows(40000, 60000), 50);
+    const after = ((40000 + r.shortfall) / (100000 + r.shortfall)) * 100;
+    expect(after).toBeCloseTo(50, 4);
+  });
+
+  it('不足額は単純な差額より大きい', () => {
+    // 単純には 10,000 円だが、買うと全体も増えるので 20,000 円必要
+    const r = evaluateDefensive(rows(40000, 60000), 50);
+    expect(r.shortfall).toBeCloseTo(20000, 2);
+  });
+
+  it('適合していれば景気敏感株の買い増し余地を出す', () => {
+    const r = evaluateDefensive(rows(60000, 40000), 50);
+    // 景気敏感を y 買うと D の比率は 60000/(100000+y)。50% を保つ上限は y = 20,000
+    expect(r.cyclical_room).toBeCloseTo(20000, 2);
+    const after = (60000 / (100000 + r.cyclical_room)) * 100;
+    expect(after).toBeCloseTo(50, 4);
+  });
+
+  it('ちょうど下限なら余地ゼロ', () => {
+    const r = evaluateDefensive(rows(50000, 50000), 50);
+    expect(r.passing).toBe(true);
+    expect(r.cyclical_room).toBeCloseTo(0, 2);
+  });
+
+  it('ディフェンシブ株が無ければ不足', () => {
+    const r = evaluateDefensive([{ label: 'K', cost: 50000, dividend: 2000, count: 5, share_pct: 100, yield_pct: 4 }], 50);
+    expect(r.passing).toBe(false);
+    expect(r.defensive_share_pct).toBe(0);
+  });
+
+  it('保有が無ければ判定しない', () => {
+    const r = evaluateDefensive([], 50);
+    expect(r.total_cost).toBe(0);
+    expect(r.shortfall).toBe(0);
+  });
+
+  it('下限は設定で変えられる', () => {
+    const store = new Store();
+    const stock = store.createStock({ code: '1001', name: '守り', classification: 'D' });
+    const position = store.createPosition({ stock_id: stock.id });
+    store.createTransaction({ position_id: position.id, type: 'BUY', trade_date: '2024-01', shares: 40, price: 1000 });
+    const s2 = store.createStock({ code: '1002', name: '攻め', classification: 'K' });
+    const p2 = store.createPosition({ stock_id: s2.id });
+    store.createTransaction({ position_id: p2.id, type: 'BUY', trade_date: '2024-01', shares: 60, price: 1000 });
+
+    expect(dashboard(store).rules.defensive.passing).toBe(false);   // 40%
+    store.updateSettings({ min_defensive_pct: 30 });
+    expect(dashboard(store).rules.defensive.passing).toBe(true);
+  });
+
+  it('不正な下限をはじく', () => {
+    const store = new Store();
+    expect(() => store.updateSettings({ min_defensive_pct: 101 })).toThrow('0〜100');
   });
 });

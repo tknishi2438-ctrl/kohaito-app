@@ -39,22 +39,39 @@ export function headroom(targetAmount, totalAmount, limitPct) {
   return (limit * totalAmount - targetAmount) / (1 - limit);
 }
 
-/** セクター別の集計結果にルール判定を付ける。 */
+/**
+ * セクター別の集計結果にルール判定を付ける。
+ *
+ * 判定は**年間配当ベース**。「1 つのセクターに配当収入を頼りすぎない」ことを
+ * 見るためで、銘柄側のルールと物差しを揃えている。
+ * (投資額ベースの構成比は「セクター別構成」の円グラフが受け持つ)
+ */
 export function evaluateSectors(rows, limitPct = DEFAULT_MAX_SECTOR_PCT) {
   const limit = Number(limitPct);
-  const totalCost = rows.reduce((sum, r) => sum + r.cost, 0);
+  const totalDividend = rows.reduce((sum, r) => sum + r.dividend, 0);
 
-  const sectors = rows.map((row) => ({
-    ...row,
-    status: statusFor(row.share_pct, limit),
-    headroom: totalCost > 0 ? round(headroom(row.cost, totalCost, limit), 2) : 0,
-    limit_pct: limit,
-  }));
+  const sectors = rows.map((row) => {
+    const share = totalDividend > 0 ? (row.dividend / totalDividend) * 100 : 0;
+    const room = totalDividend > 0 ? headroom(row.dividend, totalDividend, limit) : 0;
+    // 配当の余力を、そのセクターの現在の利回りで投資額に換算する
+    const investable = row.yield_pct > 0 ? room / (row.yield_pct / 100) : null;
 
+    return {
+      ...row,
+      share_pct: round(share, 2),          // 配当ベースの構成比で上書きする
+      cost_share_pct: row.share_pct,       // 投資額ベースの構成比も残しておく
+      status: statusFor(share, limit),
+      headroom: round(room, 2),            // 配当額としての余力
+      headroom_amount: investable === null ? null : round(investable, 2),
+      limit_pct: limit,
+    };
+  });
+
+  sectors.sort((a, b) => b.share_pct - a.share_pct);
   const over = sectors.filter((r) => r.status === 'over');
   return {
     limit_pct: limit,
-    total_cost: round(totalCost, 2),
+    total_dividend: round(totalDividend, 2),
     sectors,
     over,
     warn: sectors.filter((r) => r.status === 'warn'),

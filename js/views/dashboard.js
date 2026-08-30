@@ -17,8 +17,7 @@ function attentionNotice(attention, summary) {
   const items = [];
   (attention.sector_over_limit || []).forEach((s) => {
     items.push(
-      `セクター <b>${esc(s.label)}</b> が上限を超えています（${s.share_pct.toFixed(1)}%）。`
-      + `${yen(Math.abs(s.headroom))} 分を減らすと上限内に収まります`,
+      `セクター <b>${esc(s.label)}</b> の配当が偏っています（${s.share_pct.toFixed(1)}%）`,
     );
   });
   const dividendOver = attention.dividend_over_limit || [];
@@ -59,23 +58,40 @@ function ruleVerdict(rule, unitLabel) {
 function sectorRuleBlock(rule) {
   if (!rule || !rule.sectors.length) return '';
   const worst = rule.sectors[0];
+
+  // 余力は投資できる額で示す(そのセクターの現在利回りで換算)
+  const note = (s) => {
+    if (s.headroom_amount === null) {
+      return s.headroom >= 0 ? `余力 配当${yen(s.headroom)}` : `配当${yen(Math.abs(s.headroom))} 超過`;
+    }
+    return s.headroom_amount >= 0
+      ? `あと ${yen(s.headroom_amount)}`
+      : `${yen(Math.abs(s.headroom_amount))} 分 減らす`;
+  };
+
   return `
     <div class="rule-block">
       <div class="rule-head">
         <h4>セクター集中度</h4>
-        <span class="rule-limit">1 セクター ${rule.limit_pct}% 以下 · 投資額ベース</span>
+        <span class="rule-limit">1 セクター ${rule.limit_pct}% 以下 · 年間配当ベース</span>
         <button class="btn btn-sm btn-ghost" data-action="edit-sector-limit">上限を変更</button>
       </div>
-      <p class="rule-verdict">${ruleVerdict(rule, `${esc(worst.label)} の ${worst.share_pct.toFixed(1)}%`)}</p>
+      <p class="rule-verdict">
+        ${ruleVerdict(rule, `${esc(worst.label)} の ${worst.share_pct.toFixed(1)}%`)}
+        <span class="muted" style="margin-left:8px">
+          全 ${rule.sectors.length} 業種が均等なら 1 業種 ${(100 / rule.sectors.length).toFixed(1)}%
+        </span>
+      </p>
       ${charts.limitBars(
     rule.sectors.map((s) => ({
-      label: s.label,
-      value: s.share_pct,
-      status: s.status,
-      note: s.headroom >= 0 ? `余力 ${yen(s.headroom)}` : `${yen(Math.abs(s.headroom))} 超過`,
+      label: s.label, value: s.share_pct, status: s.status, note: note(s),
     })),
     { limit: rule.limit_pct },
   )}
+      <p class="hint">
+        年間配当のうち、そのセクターが占める割合です。
+        「あと ◯円」は、いまの利回りのまま買い増した場合に上限へ届くまでの投資額の目安です。
+      </p>
     </div>`;
 }
 
@@ -340,7 +356,7 @@ export async function render(root, { navigate }) {
       title: 'セクター集中度の上限',
       name: 'max_sector_pct',
       label: '1 セクターあたりの上限 (%)',
-      hint: '投資額の構成比で判定します。既定は 20% です。',
+      hint: '年間配当に占める割合で判定します。既定は 20% です。',
       current: data.rules.sector.limit_pct,
       min: 1,
       onDone: () => render(root, { navigate }),

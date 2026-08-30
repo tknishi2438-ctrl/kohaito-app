@@ -214,24 +214,54 @@ describe('セクター集中度', () => {
     expect(headroom(200000, 1000000, 20)).toBeCloseTo(0.0, 6);
   });
 
-  it('均等なら適合', () => {
+  it('配当が均等なら適合', () => {
     const rows = Array.from({ length: 10 }, (_, i) => ({
-      label: `業種${i}`, cost: 10000, share_pct: 10,
+      label: `業種${i}`, cost: 10000, dividend: 400, share_pct: 10, yield_pct: 4,
     }));
     const result = evaluateSectors(rows, 20);
     expect(result.passing).toBe(true);
     expect(result.max_share_pct).toBe(10);
   });
 
-  it('偏っていれば超過として拾う', () => {
+  it('配当が偏っていれば超過として拾う', () => {
     const result = evaluateSectors([
-      { label: '銀行', cost: 100000, share_pct: 83.3 },
-      { label: '食料品', cost: 10000, share_pct: 8.3 },
-      { label: '化学', cost: 10000, share_pct: 8.3 },
+      { label: '銀行', cost: 100000, dividend: 5000, share_pct: 83.3, yield_pct: 5 },
+      { label: '食料品', cost: 10000, dividend: 300, share_pct: 8.3, yield_pct: 3 },
+      { label: '化学', cost: 10000, dividend: 300, share_pct: 8.3, yield_pct: 3 },
     ], 20);
     expect(result.passing).toBe(false);
     expect(result.over.map((r) => r.label)).toEqual(['銀行']);
     expect(result.over[0].headroom).toBeLessThan(0);
+  });
+
+  it('判定は投資額ではなく配当額で行う', () => {
+    // 投資額は同じだが、利回りの差で配当が偏っているケース
+    const result = evaluateSectors([
+      { label: '高利回り', cost: 50000, dividend: 4000, share_pct: 50, yield_pct: 8 },
+      { label: '低利回り', cost: 50000, dividend: 500, share_pct: 50, yield_pct: 1 },
+    ], 20);
+    // 投資額なら 50% ずつだが、配当では 88.9% と 11.1%
+    expect(result.sectors[0].share_pct).toBeCloseTo(88.89, 1);
+    expect(result.sectors[0].cost_share_pct).toBe(50);
+    expect(result.over.map((r) => r.label)).toEqual(['高利回り']);
+  });
+
+  it('配当の余力を利回りで投資額に換算する', () => {
+    const rows = Array.from({ length: 10 }, (_, i) => ({
+      label: `業種${i}`, cost: 10000, dividend: 400, share_pct: 10, yield_pct: 4,
+    }));
+    const row = evaluateSectors(rows, 20).sectors[0];
+    // 利回り 4% なら、配当 x 円の余力は x / 0.04 円の投資に相当する
+    expect(row.headroom_amount).toBeCloseTo(row.headroom / 0.04, 1);
+  });
+
+  it('割合の降順に並ぶ', () => {
+    const result = evaluateSectors([
+      { label: '小', cost: 1000, dividend: 100, share_pct: 10, yield_pct: 10 },
+      { label: '大', cost: 1000, dividend: 500, share_pct: 10, yield_pct: 50 },
+      { label: '中', cost: 1000, dividend: 300, share_pct: 10, yield_pct: 30 },
+    ], 90);
+    expect(result.sectors.map((r) => r.label)).toEqual(['大', '中', '小']);
   });
 });
 
@@ -454,11 +484,12 @@ describe('ポートフォリオの組み立て', () => {
 
   it('設定した上限が判定に反映される', () => {
     const store = newStore();
-    const a = seed(store, { code: '1001', name: '銀行株', sector: '銀行' });
+    const a = seed(store, { code: '1001', name: '銀行株', sector: '銀行', dividend_per_share: 60 });
     store.createTransaction({ position_id: a.position.id, type: 'BUY', trade_date: '2024-01-01', shares: 60, price: 1000 });
-    const b = seed(store, { code: '1002', name: '食品株', sector: '食料品' });
+    const b = seed(store, { code: '1002', name: '食品株', sector: '食料品', dividend_per_share: 40 });
     store.createTransaction({ position_id: b.position.id, type: 'BUY', trade_date: '2024-01-01', shares: 40, price: 1000 });
 
+    // 配当は 3600 と 1600 で、銀行が約 69%
     expect(dashboard(store).rules.sector.passing).toBe(false);
     store.updateSettings({ max_sector_pct: 70 });
     expect(dashboard(store).rules.sector.passing).toBe(true);

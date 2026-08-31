@@ -1,10 +1,10 @@
 // 銘柄詳細: ロットごとの取引台帳と、IRBANK 由来の配当・営業利益の推移。
 
-import { api } from '../lib/api.js?v=202608312316';
-import * as charts from '../lib/charts.js?v=202608312316';
-import { delegate, esc, toast } from '../lib/dom.js?v=202608312316';
-import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202608312316';
-import { classification, date, dateTime, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202608312316';
+import { api } from '../lib/api.js?v=202608312331';
+import * as charts from '../lib/charts.js?v=202608312331';
+import { delegate, esc, toast } from '../lib/dom.js?v=202608312331';
+import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202608312331';
+import { classification, date, dateTime, fullDate, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202608312331';
 
 const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
@@ -165,7 +165,7 @@ export async function render(root, { navigate, params }) {
       <div class="summary-cell">
         <p class="summary-label">現在値</p>
         <p class="summary-value">${stock.market_price ? yen(stock.market_price) : '—'}</p>
-        <p class="summary-sub">${stock.market_price_date ? `${esc(date(stock.market_price_date))} 時点` : '未取得'}</p>
+        <p class="summary-sub">${stock.market_price_date ? `${esc(fullDate(stock.market_price_date))} 終値` : '未取得'}</p>
       </div>
       <div class="summary-cell">
         <p class="summary-label">含み損益</p>

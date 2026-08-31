@@ -42,6 +42,15 @@ export function date(value) {
   return String(value).slice(0, 7).replaceAll('-', '/');
 }
 
+/**
+ * 日付をそのまま(YYYY/MM/DD)見せる。
+ * 株価の取得日など、何日時点かが意味を持つものに使う。
+ */
+export function fullDate(value) {
+  if (!value) return '未設定';
+  return String(value).slice(0, 10).replaceAll('-', '/');
+}
+
 export function dateTime(value) {
   if (!value) return '—';
   return String(value).replace('T', ' ').slice(0, 16).replaceAll('-', '/');

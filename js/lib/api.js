@@ -4,10 +4,10 @@
 // 中身をブラウザ内の計算 + GitHub への保存に置き換えている。
 // 書き込みのたびに保存し、失敗したら画面に伝える。
 
-import { Store } from './store.js?v=202608312316';
-import * as portfolioLib from './portfolio.js?v=202608312316';
-import * as portability from './portability.js?v=202608312316';
-import { Persistence, RemoteChanged } from './persist.js?v=202608312316';
+import { Store } from './store.js?v=202608312331';
+import * as portfolioLib from './portfolio.js?v=202608312331';
+import * as portability from './portability.js?v=202608312331';
+import { Persistence, RemoteChanged } from './persist.js?v=202608312331';
 
 const store = new Store();
 const persistence = new Persistence();

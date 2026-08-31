@@ -1,8 +1,8 @@
 // 銘柄・ポジション・取引の入力フォーム(モーダル)をまとめたモジュール。
 
-import { api } from './api.js?v=202608302325';
-import { confirmDialog, esc, modal, qs, toast } from './dom.js?v=202608302325';
-import { normalizeMonth, thisMonth, TX_LABEL } from './format.js?v=202608302325';
+import { api } from './api.js?v=202608312316';
+import { confirmDialog, esc, modal, qs, toast } from './dom.js?v=202608312316';
+import { normalizeMonth, thisMonth, TX_LABEL } from './format.js?v=202608312316';
 
 const CLASSIFICATIONS = [
   ['K', 'K — 景気敏感株'],
@@ -119,7 +119,7 @@ export function transactionForm(tx, positionId, onDone) {
   const tradeFields = `
     <div class="field-row three">
       ${field('株数', numberInput('shares', tx?.shares || '', 'min="0" required'))}
-      ${field('単価 (円)', numberInput('price', tx?.price || '', 'min="0" required'))}
+      ${field('約定単価 (円)', numberInput('price', tx?.price || '', 'min="0" required'))}
       ${field('手数料 (円)', numberInput('fee', tx?.fee || 0, 'min="0"'))}
     </div>`;
 

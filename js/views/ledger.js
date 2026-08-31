@@ -1,9 +1,9 @@
 // 取引台帳: 全銘柄の取引を新しい順に一覧する。
 
-import { api } from '../lib/api.js?v=202608302325';
-import { delegate, esc } from '../lib/dom.js?v=202608302325';
-import { confirmDelete, transactionForm } from '../lib/forms.js?v=202608302325';
-import { date, num, shares, TX_LABEL, yen } from '../lib/format.js?v=202608302325';
+import { api } from '../lib/api.js?v=202608312316';
+import { delegate, esc } from '../lib/dom.js?v=202608312316';
+import { confirmDelete, transactionForm } from '../lib/forms.js?v=202608312316';
+import { date, num, shares, TX_LABEL, yen } from '../lib/format.js?v=202608312316';
 
 const state = { search: '', type: 'ALL' };
 
@@ -47,7 +47,7 @@ export async function render(root, { navigate }) {
         <thead><tr>
           <th style="width:90px">取引月</th><th style="width:70px">種別</th>
           <th style="width:60px">コード</th><th>銘柄</th><th>ロット</th>
-          <th class="r">株数</th><th class="r">単価</th><th class="r">受渡金額</th>
+          <th class="r">株数</th><th class="r">約定単価</th><th class="r">受渡金額</th>
           <th>メモ</th><th class="r">操作</th>
         </tr></thead>
         <tbody>${rows.map((tx) => `

@@ -1,9 +1,9 @@
 // ダッシュボード: 資産サマリー・分散ルール・構成比・要対応の一覧。
 
-import { api } from '../lib/api.js?v=202608302325';
-import * as charts from '../lib/charts.js?v=202608302325';
-import { delegate, esc, modal, toast } from '../lib/dom.js?v=202608302325';
-import { classification, pct, signClass, yen } from '../lib/format.js?v=202608302325';
+import { api } from '../lib/api.js?v=202608312316';
+import * as charts from '../lib/charts.js?v=202608312316';
+import { delegate, esc, modal, toast } from '../lib/dom.js?v=202608312316';
+import { classification, pct, signClass, yen } from '../lib/format.js?v=202608312316';
 
 function summaryCard(label, value, { cls = '', sub = '' } = {}) {
   return `

@@ -1,10 +1,10 @@
 // 銘柄詳細: ロットごとの取引台帳と、IRBANK 由来の配当・営業利益の推移。
 
-import { api } from '../lib/api.js?v=202608302325';
-import * as charts from '../lib/charts.js?v=202608302325';
-import { delegate, esc, toast } from '../lib/dom.js?v=202608302325';
-import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202608302325';
-import { classification, date, dateTime, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202608302325';
+import { api } from '../lib/api.js?v=202608312316';
+import * as charts from '../lib/charts.js?v=202608312316';
+import { delegate, esc, toast } from '../lib/dom.js?v=202608312316';
+import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202608312316';
+import { classification, date, dateTime, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202608312316';
 
 const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
@@ -53,7 +53,7 @@ function positionBlock(position, stock) {
           <table class="data">
             <thead><tr>
               <th style="width:90px">取引月</th><th style="width:70px">種別</th>
-              <th class="r">株数</th><th class="r">単価</th><th class="r">受渡金額</th>
+              <th class="r">株数</th><th class="r">約定単価</th><th class="r">受渡金額</th>
               <th class="r">手数料</th><th>メモ</th><th class="r">操作</th>
             </tr></thead>
             <tbody>${txs.map(txRow).join('')}</tbody>

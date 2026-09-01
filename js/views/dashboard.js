@@ -1,9 +1,9 @@
 // ダッシュボード: 資産サマリー・分散ルール・構成比・要対応の一覧。
 
-import { api } from '../lib/api.js?v=202608312331';
-import * as charts from '../lib/charts.js?v=202608312331';
-import { delegate, esc, modal, toast } from '../lib/dom.js?v=202608312331';
-import { classification, pct, signClass, yen } from '../lib/format.js?v=202608312331';
+import { api } from '../lib/api.js?v=202609012349';
+import * as charts from '../lib/charts.js?v=202609012349';
+import { delegate, esc, modal, toast } from '../lib/dom.js?v=202609012349';
+import { pct, signClass, yen } from '../lib/format.js?v=202609012349';
 
 function summaryCard(label, value, { cls = '', sub = '' } = {}) {
   return `
@@ -210,20 +210,6 @@ function rulesCard(rules) {
     </div>`;
 }
 
-function rankTable(rows, valueKey, valueFormat) {
-  if (!rows.length) return '<p class="muted" style="margin:0">データがありません</p>';
-  return `<table class="data"><tbody>
-    ${rows.map((r) => `
-      <tr class="clickable" data-action="open-stock" data-id="${r.id}">
-        <td style="width:44px" class="muted num">${esc(r.code)}</td>
-        <td><span class="badge ${r.classification.toLowerCase()}"
-                  title="${esc(classification(r.classification).label)}">${esc(r.classification)}</span>
-            <span style="margin-left:8px">${esc(r.name)}</span></td>
-        <td class="r">${valueFormat(r[valueKey])}</td>
-      </tr>`).join('')}
-  </tbody></table>`;
-}
-
 function limitForm({ title, name, label, hint, current, min, onDone }) {
   modal({
     title,
@@ -307,28 +293,9 @@ export async function render(root, { navigate }) {
     : ''}
     </div>
 
-    ${rulesCard(data.rules)}
-
-    <div class="grid grid-2" style="margin-top:16px">
-      <div class="card" style="margin-top:0">
-        <div class="card-head">
-          <h3 class="card-title">配当額 上位</h3>
-          <p class="card-note">年間の受取見込み</p>
-        </div>
-        ${rankTable(data.top_dividend, 'annual_dividend', (v) => `<span class="gold">${yen(v)}</span>`)}
-      </div>
-
-      <div class="card" style="margin-top:0">
-        <div class="card-head">
-          <h3 class="card-title">取得利回り 上位</h3>
-          <p class="card-note">買った値段に対する配当利回り</p>
-        </div>
-        ${rankTable(data.top_yield, 'yield_on_cost', (v) => `<span class="teal">${pct(v)}</span>`)}
-      </div>
-    </div>`;
+    ${rulesCard(data.rules)}`;
 
   delegate(root, 'click', {
-    'open-stock': (target) => navigate(`stock/${target.dataset.id}`),
     'edit-sector-limit': () => limitForm({
       title: 'セクター集中度の上限',
       name: 'max_sector_pct',

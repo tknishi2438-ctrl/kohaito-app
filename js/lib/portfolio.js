@@ -1,8 +1,8 @@
 // 銘柄・ポジション・取引を組み立てて、画面が必要とする形に整える層。
 // もとは Python の app/portfolio.py。
 
-import { aggregate, computePosition, dividendMonths, EPSILON, evaluate, sortTransactions } from './models.js?v=202608312331';
-import { evaluateDefensive, evaluateSectors, evaluateStockDividends } from './rules.js?v=202608312331';
+import { aggregate, computePosition, dividendMonths, EPSILON, evaluate, sortTransactions } from './models.js?v=202609012349';
+import { evaluateDefensive, evaluateSectors, evaluateStockDividends } from './rules.js?v=202609012349';
 
 function round(value, digits) {
   const f = 10 ** digits;
@@ -171,27 +171,11 @@ export function dashboard(store) {
   const dividendRule = evaluateStockDividends(views, settings.max_stock_dividend_pct);
   const defensiveRule = evaluateDefensive(byClassification, settings.min_defensive_pct);
 
-  const brief = (v) => ({
-    id: v.id, code: v.code, name: v.name, sector: v.sector,
-    classification: v.classification,
-    annual_dividend: v.metrics.annual_dividend,
-    yield_on_cost: v.metrics.yield_on_cost,
-    cost: v.metrics.cost,
-    unrealized_pl_pct: v.metrics.unrealized_pl_pct,
-    market_price: v.market_price,
-  });
-
   return {
     summary,
     rules: { sector: sectorRule, stock_dividend: dividendRule, defensive: defensiveRule },
     by_sector: bySector,
     by_classification: byClassification,
-    top_dividend: [...held]
-      .sort((a, b) => b.metrics.annual_dividend - a.metrics.annual_dividend)
-      .slice(0, 10).map(brief),
-    top_yield: [...held]
-      .sort((a, b) => b.metrics.yield_on_cost - a.metrics.yield_on_cost)
-      .slice(0, 10).map(brief),
     needs_attention: {
       no_market_price: held.filter((v) => !v.market_price)
         .map((v) => ({ id: v.id, code: v.code, name: v.name })),

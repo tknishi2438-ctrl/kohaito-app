@@ -1,9 +1,9 @@
 // ダッシュボード: 資産サマリー・分散ルール・構成比・要対応の一覧。
 
-import { api } from '../lib/api.js?v=202609012349';
-import * as charts from '../lib/charts.js?v=202609012349';
-import { delegate, esc, modal, toast } from '../lib/dom.js?v=202609012349';
-import { pct, signClass, yen } from '../lib/format.js?v=202609012349';
+import { api } from '../lib/api.js?v=202609012351';
+import * as charts from '../lib/charts.js?v=202609012351';
+import { delegate, esc, modal, toast } from '../lib/dom.js?v=202609012351';
+import { pct, signClass, yen } from '../lib/format.js?v=202609012351';
 
 function summaryCard(label, value, { cls = '', sub = '' } = {}) {
   return `
@@ -185,7 +185,7 @@ function defensiveRuleBlock(rule) {
       status: 'neutral',
       note: '',
     },
-  ], { limit: rule.min_pct, scaleMax: 100 })}
+  ], { limit: rule.min_pct, scaleMax: 100, limitLabel: '下限' })}
       <p class="hint">
         年間配当のうち、ディフェンシブ株から得ている割合です。
         点線は下限で、<b style="color:var(--text-2)">この線より右</b>にあれば適合です。

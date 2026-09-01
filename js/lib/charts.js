@@ -1,7 +1,7 @@
 // 外部ライブラリを使わない SVG グラフ。配色は CSS 変数から読むため、
 // 明暗テーマの切り替えにそのまま追従する。
 
-import { esc } from './dom.js?v=202609012349';
+import { esc } from './dom.js?v=202609012351';
 
 const PALETTE_SIZE = 12;
 const FALLBACK = '#8a6a17';
@@ -38,10 +38,11 @@ function compact(value) {
 }
 
 /**
- * 構成比の横棒グラフ。上限ラインを引き、超過分を色分けする。
+ * 構成比の横棒グラフ。基準ラインを引き、外れた分を色分けする。
  * items: [{label, value, status, note}] value は %
+ * limitLabel: 基準線の呼び名。下限を課すルールでは '下限' を渡す。
  */
-export function limitBars(items, { limit = 20, scaleMax = null } = {}) {
+export function limitBars(items, { limit = 20, scaleMax = null, limitLabel = '上限' } = {}) {
   if (!items.length) return '<p class="muted" style="margin:0">データがありません</p>';
   const max = scaleMax ?? Math.max(limit * 1.25, ...items.map((i) => i.value) ) * 1.05;
   const pos = (v) => `${Math.min((v / max) * 100, 100).toFixed(2)}%`;
@@ -66,7 +67,7 @@ export function limitBars(items, { limit = 20, scaleMax = null } = {}) {
         <span class="limit-note num muted">${esc(item.note ?? '')}</span>
       </div>`).join('')}
     <div class="limit-legend">
-      <span class="limit-legend-mark"></span>上限 ${limit}%
+      <span class="limit-legend-mark"></span>${esc(limitLabel)} ${limit}%
     </div>
   </div>`;
 }

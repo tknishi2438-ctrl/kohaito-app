@@ -8,7 +8,11 @@
 export const BUY = 'BUY';
 export const SELL = 'SELL';
 export const SPLIT = 'SPLIT';
-export const TX_TYPES = [BUY, SELL, SPLIT];
+// 振替: ロット間で株と取得原価を移す。売買ではないので損益は生じない。
+// 株式分割で増えた分を別ロットに切り出すときに、対で作られる。
+export const MOVE_OUT = 'MOVE_OUT';
+export const MOVE_IN = 'MOVE_IN';
+export const TX_TYPES = [BUY, SELL, SPLIT, MOVE_OUT, MOVE_IN];
 
 // 浮動小数の丸め誤差で「ごく僅かに残った株数」を保有扱いしないための閾値
 export const EPSILON = 1e-9;
@@ -60,12 +64,14 @@ export function splitRatio(tx) {
  * - BUY   : 株数と取得原価(手数料込み)を積み増す
  * - SELL  : 平均取得単価分の原価を取り崩し、差額を実現損益に計上する
  * - SPLIT : 株数のみを比率倍する(取得原価は不変 = 平均取得単価が比率分下がる)
+ * - MOVE_OUT / MOVE_IN : 株と取得原価を、記録された額のまま出し入れする。
+ *   売買ではないため実現損益は動かず、対で見れば全体の原価は保たれる。
  */
 export function computePosition(transactions) {
   const m = {
     shares: 0, cost: 0, avg_price: 0, realized_pl: 0,
     gross_buy: 0, gross_sell: 0, total_fee: 0,
-    buy_count: 0, sell_count: 0, split_count: 0,
+    buy_count: 0, sell_count: 0, split_count: 0, move_count: 0,
     first_trade_date: null, last_trade_date: null,
   };
 
@@ -115,6 +121,35 @@ export function computePosition(transactions) {
     } else if (type === SPLIT) {
       m.shares *= splitRatio(tx);
       m.split_count += 1;
+
+    } else if (type === MOVE_OUT || type === MOVE_IN) {
+      const qty = num(tx.shares);
+      const amount = num(tx.amount);
+      if (qty <= 0) throw new LedgerError('振替の株数は 1 以上で入力してください');
+      if (amount < 0) throw new LedgerError('振替の取得原価に負の数は指定できません');
+      if (type === MOVE_IN) {
+        m.shares += qty;
+        m.cost += amount;
+      } else {
+        if (qty > m.shares + EPSILON) {
+          throw new LedgerError(
+            `振替株数(${qty})が、その時点の保有株数(${m.shares})を超えています`,
+          );
+        }
+        // 原価は記録された額をそのまま動かす。対の受入と同額なので全体では増減しない
+        if (amount > m.cost + 0.01) {
+          throw new LedgerError(
+            `振替の取得原価(${amount})が、その時点の取得原価(${m.cost})を超えています`,
+          );
+        }
+        m.shares -= qty;
+        m.cost -= amount;
+        if (m.shares <= EPSILON) {
+          m.shares = 0;
+          m.cost = 0;
+        }
+      }
+      m.move_count += 1;
 
     } else {
       throw new LedgerError(`未知の取引種別です: ${tx.type}`);

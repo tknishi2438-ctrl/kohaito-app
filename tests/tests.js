@@ -1,16 +1,17 @@
 // 計算ロジックのテスト。Python 版 tests/test_models.py・test_repository.py の移植。
 
-import { describe, it, expect } from './runner.js?v=202609012351';
+import { describe, it, expect } from './runner.js?v=202609052341';
 import {
   aggregate, computePosition, dividendMonths, evaluate, LedgerError,
-} from '../js/lib/models.js?v=202609012351';
+} from '../js/lib/models.js?v=202609052341';
 import {
   evaluateDefensive, evaluateSectors, evaluateStockDividends, headroom,
-} from '../js/lib/rules.js?v=202609012351';
-import { Store } from '../js/lib/store.js?v=202609012351';
-import { fromBase64, toBase64 } from '../js/lib/github.js?v=202609012351';
-import { date as formatDate, normalizeMonth } from '../js/lib/format.js?v=202609012351';
-import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202609012351';
+} from '../js/lib/rules.js?v=202609052341';
+import { Store } from '../js/lib/store.js?v=202609052341';
+import { fromBase64, toBase64 } from '../js/lib/github.js?v=202609052341';
+import { delegate } from '../js/lib/dom.js?v=202609052341';
+import { date as formatDate, normalizeMonth } from '../js/lib/format.js?v=202609052341';
+import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202609052341';
 
 const tx = (id, type, date, extra = {}) => ({ id, type, trade_date: date, ...extra });
 
@@ -646,6 +647,206 @@ describe('取引月の保存', () => {
       position_id: position.id, type: 'BUY', trade_date: '2025-01', shares: 10, price: 1000,
     });
     expect(computePosition(store.listTransactions(position.id)).shares).toBe(20);
+  });
+});
+
+// ------------------------------------------------------ 分割とロットの分離
+
+describe('分割で増えた分を別ロットに切り出す', () => {
+  // 20 株 × ¥1,853 = ¥37,060 を持っているところに分割が起きる、という前提
+  const setup = (shares = 20, price = 1853) => {
+    const store = new Store();
+    const stock = store.createStock({ code: '1414', name: 'テスト株' });
+    const position = store.createPosition({ stock_id: stock.id });
+    store.createTransaction({
+      position_id: position.id, type: 'BUY', trade_date: '2025-04', shares, price,
+    });
+    return { store, stock, position };
+  };
+
+  const metrics = (store, positionId) => computePosition(store.listTransactions(positionId));
+
+  it('もとのロットは分割前の株数のまま残る', () => {
+    const { store, position } = setup();
+    store.splitPosition(position.id, { trade_date: '2026-09', split_from: 1, split_to: 2 });
+    expect(metrics(store, position.id).shares).toBe(20);
+  });
+
+  it('増えた分だけが新しいロットに入る', () => {
+    const { store, position } = setup();
+    const { position: created } = store.splitPosition(position.id,
+      { trade_date: '2026-09', split_from: 1, split_to: 2 });
+    expect(metrics(store, created.id).shares).toBe(20);
+  });
+
+  it('取得原価は株数の比で按分され、合計は変わらない', () => {
+    const { store, stock, position } = setup();
+    const { position: created } = store.splitPosition(position.id,
+      { trade_date: '2026-09', split_from: 1, split_to: 2 });
+    const origin = metrics(store, position.id);
+    const moved = metrics(store, created.id);
+    expect(origin.cost).toBe(18530);
+    expect(moved.cost).toBe(18530);
+    expect(origin.cost + moved.cost).toBe(37060);
+    expect(getStockView(store, stock.id).metrics.cost).toBe(37060);
+  });
+
+  it('両ロットの平均取得単価は同じで、分割比率のぶん下がる', () => {
+    const { store, position } = setup();
+    const { position: created } = store.splitPosition(position.id,
+      { trade_date: '2026-09', split_from: 1, split_to: 2 });
+    expect(metrics(store, position.id).avg_price).toBe(926.5);
+    expect(metrics(store, created.id).avg_price).toBe(926.5);
+  });
+
+  it('銘柄全体の株数は分割後の総数になる', () => {
+    const { store, stock, position } = setup();
+    store.splitPosition(position.id, { trade_date: '2026-09', split_from: 1, split_to: 2 });
+    expect(getStockView(store, stock.id).metrics.shares).toBe(40);
+  });
+
+  it('1 対 3 の分割なら 2 倍が新ロットに移る', () => {
+    const { store, position } = setup(10, 1200);
+    const { position: created } = store.splitPosition(position.id,
+      { trade_date: '2026-09', split_from: 1, split_to: 3 });
+    expect(metrics(store, position.id).shares).toBe(10);
+    expect(metrics(store, created.id).shares).toBe(20);
+    expect(metrics(store, position.id).cost).toBe(4000);
+    expect(metrics(store, created.id).cost).toBe(8000);
+  });
+
+  it('併合ではロットを作らず、その場で株数が減る', () => {
+    const { store, stock, position } = setup(100, 500);
+    const result = store.splitPosition(position.id,
+      { trade_date: '2026-09', split_from: 10, split_to: 1 });
+    expect(result.position).toBe(null);
+    expect(store.listPositions(stock.id).length).toBe(1);
+    expect(metrics(store, position.id).shares).toBe(10);
+    expect(metrics(store, position.id).cost).toBe(50000);
+  });
+
+  it('振替は損益を生まない', () => {
+    const { store, position } = setup();
+    const { position: created } = store.splitPosition(position.id,
+      { trade_date: '2026-09', split_from: 1, split_to: 2 });
+    expect(metrics(store, position.id).realized_pl).toBe(0);
+    expect(metrics(store, created.id).realized_pl).toBe(0);
+  });
+
+  it('分割後の新ロットから売却できる', () => {
+    const { store, position } = setup();
+    const { position: created } = store.splitPosition(position.id,
+      { trade_date: '2026-09', split_from: 1, split_to: 2 });
+    store.createTransaction({
+      position_id: created.id, type: 'SELL', trade_date: '2026-10', shares: 20, price: 1000,
+    });
+    const moved = metrics(store, created.id);
+    expect(moved.shares).toBe(0);
+    // 20 株 × ¥1,000 = ¥20,000 に対し、原価は ¥18,530
+    expect(moved.realized_pl).toBe(1470);
+  });
+
+  it('振替の片方を消すと、対になる記録も消える', () => {
+    const { store, position } = setup();
+    const { position: created } = store.splitPosition(position.id,
+      { trade_date: '2026-09', split_from: 1, split_to: 2 });
+    const moveIn = store.listTransactions(created.id)[0];
+    store.deleteTransaction(moveIn.id);
+    expect(store.listTransactions(created.id).length).toBe(0);
+    // もとのロットは分割後の 40 株に戻る(払出も消えるため)
+    expect(metrics(store, position.id).shares).toBe(40);
+    expect(metrics(store, position.id).cost).toBe(37060);
+  });
+
+  it('振替を消すと、空になった分割ロットも畳まれる', () => {
+    const { store, stock, position } = setup();
+    const { position: created } = store.splitPosition(position.id,
+      { trade_date: '2026-09', split_from: 1, split_to: 2 });
+    store.deleteTransaction(store.listTransactions(created.id)[0].id);
+    expect(store.listPositions(stock.id).map((p) => p.id)).toEqual([position.id]);
+  });
+
+  it('自分で足した取引が残っている分割ロットは畳まない', () => {
+    const { store, stock, position } = setup();
+    const { position: created } = store.splitPosition(position.id,
+      { trade_date: '2026-09', split_from: 1, split_to: 2 });
+    const moveIn = store.listTransactions(created.id)[0];
+    store.createTransaction({
+      position_id: created.id, type: 'BUY', trade_date: '2026-11', shares: 5, price: 900,
+    });
+    store.deleteTransaction(moveIn.id);
+    expect(store.listPositions(stock.id).length).toBe(2);
+    expect(metrics(store, created.id).shares).toBe(5);
+  });
+
+  it('新ロットを削除しても、もとのロットに株数と原価が戻る', () => {
+    const { store, stock, position } = setup();
+    const { position: created } = store.splitPosition(position.id,
+      { trade_date: '2026-09', split_from: 1, split_to: 2 });
+    store.deletePosition(created.id);
+    expect(metrics(store, position.id).shares).toBe(40);
+    expect(getStockView(store, stock.id).metrics.cost).toBe(37060);
+  });
+
+  it('保有ゼロのロットではロットを作らない', () => {
+    const store = new Store();
+    const stock = store.createStock({ code: '1414', name: 'テスト株' });
+    const position = store.createPosition({ stock_id: stock.id });
+    const result = store.splitPosition(position.id,
+      { trade_date: '2026-09', split_from: 1, split_to: 2 });
+    expect(result.position).toBe(null);
+    expect(store.listPositions(stock.id).length).toBe(1);
+  });
+
+  it('比率が不正なら何も作られない', () => {
+    const { store, stock, position } = setup();
+    let failed = false;
+    try {
+      store.splitPosition(position.id, { trade_date: '2026-09', split_from: 0, split_to: 2 });
+    } catch {
+      failed = true;
+    }
+    expect(failed).toBe(true);
+    expect(store.listPositions(stock.id).length).toBe(1);
+    expect(store.listTransactions(position.id).length).toBe(1);
+  });
+});
+
+// ----------------------------------------------------------- イベント委譲
+
+describe('イベント委譲', () => {
+  const box = () => {
+    const root = document.createElement('div');
+    root.innerHTML = '<button data-action="go">押す</button>';
+    return root;
+  };
+
+  it('data-action に対応する処理を呼ぶ', () => {
+    const root = box();
+    let calls = 0;
+    delegate(root, 'click', { go: () => { calls += 1; } });
+    root.querySelector('button').click();
+    expect(calls).toBe(1);
+  });
+
+  it('登録し直しても多重に動かない', () => {
+    // 画面を描き直すたびに登録されるため、古い登録が残ると二重に走ってしまう
+    const root = box();
+    let calls = 0;
+    delegate(root, 'click', { go: () => { calls += 1; } });
+    delegate(root, 'click', { go: () => { calls += 1; } });
+    delegate(root, 'click', { go: () => { calls += 1; } });
+    root.querySelector('button').click();
+    expect(calls).toBe(1);
+  });
+
+  it('残るのは最後に登録した処理', () => {
+    const root = box();
+    const seen = [];
+    delegate(root, 'click', { go: () => seen.push('古い') });
+    delegate(root, 'click', { go: () => seen.push('新しい') });
+    root.querySelector('button').click();
+    expect(seen).toEqual(['新しい']);
   });
 });
 

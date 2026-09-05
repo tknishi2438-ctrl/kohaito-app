@@ -1,20 +1,30 @@
 // 銘柄詳細: ロットごとの取引台帳と、IRBANK 由来の配当・営業利益の推移。
 
-import { api } from '../lib/api.js?v=202609012351';
-import * as charts from '../lib/charts.js?v=202609012351';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609012351';
-import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609012351';
-import { classification, date, dateTime, fullDate, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609012351';
+import { api } from '../lib/api.js?v=202609052341';
+import * as charts from '../lib/charts.js?v=202609052341';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609052341';
+import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609052341';
+import { classification, date, dateTime, fullDate, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609052341';
 
 const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
+const MOVE_TYPES = ['MOVE_OUT', 'MOVE_IN'];
+
 function txRow(tx) {
-  const detail = tx.type === 'SPLIT'
-    ? `<td class="r" colspan="3">${num(tx.split_from, 4)} 株 → ${num(tx.split_to, 4)} 株
-        <span class="muted">(×${num(tx.split_to / tx.split_from, 4)})</span></td>`
-    : `<td class="r">${shares(tx.shares)}</td>
+  const isMove = MOVE_TYPES.includes(tx.type);
+  let detail;
+  if (tx.type === 'SPLIT') {
+    detail = `<td class="r" colspan="3">${num(tx.split_from, 4)} 株 → ${num(tx.split_to, 4)} 株
+        <span class="muted">(×${num(tx.split_to / tx.split_from, 4)})</span></td>`;
+  } else if (isMove) {
+    detail = `<td class="r">${tx.type === 'MOVE_OUT' ? '−' : '+'}${shares(tx.shares)}</td>
+       <td class="r muted" colspan="2">取得原価 ${yen(tx.amount)}</td>`;
+  } else {
+    detail = `<td class="r">${shares(tx.shares)}</td>
        <td class="r">${yen(tx.price)}</td>
        <td class="r">${yen(tx.shares * tx.price + (tx.type === 'BUY' ? tx.fee : -tx.fee))}</td>`;
+  }
+  // 振替は対で成り立つので、片方だけの書き換えは許さない(削除は対で消える)
   return `<tr>
     <td class="${tx.trade_date ? '' : 'muted'}">${esc(date(tx.trade_date))}</td>
     <td><span class="badge ${tx.type.toLowerCase()}">${TX_LABEL[tx.type]}</span></td>
@@ -22,7 +32,7 @@ function txRow(tx) {
     <td class="r muted">${tx.fee ? yen(tx.fee) : ''}</td>
     <td class="muted cell-note">${esc(tx.note || '')}</td>
     <td class="r"><div class="row-actions">
-      <button class="btn btn-sm btn-ghost" data-action="edit-tx" data-id="${tx.id}">編集</button>
+      ${isMove ? '' : `<button class="btn btn-sm btn-ghost" data-action="edit-tx" data-id="${tx.id}">編集</button>`}
       <button class="btn btn-sm btn-danger" data-action="delete-tx" data-id="${tx.id}">削除</button>
     </div></td>
   </tr>`;
@@ -239,7 +249,10 @@ export async function render(root, { navigate, params }) {
     },
     'delete-tx': (target) => {
       const tx = stock.transactions.find((t) => String(t.id) === target.dataset.id);
-      confirmDelete('取引', `${date(tx.trade_date)} の${TX_LABEL[tx.type]}`, async () => {
+      const name = MOVE_TYPES.includes(tx.type)
+        ? `${date(tx.trade_date)} の振替(相手側の記録も一緒に消えます)`
+        : `${date(tx.trade_date)} の${TX_LABEL[tx.type]}`;
+      confirmDelete('取引', name, async () => {
         await api.deleteTransaction(tx.id);
         reload();
       });

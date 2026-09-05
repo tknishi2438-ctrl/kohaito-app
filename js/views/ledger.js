@@ -1,16 +1,22 @@
 // 取引台帳: 全銘柄の取引を新しい順に一覧する。
 
-import { api } from '../lib/api.js?v=202609012351';
-import { delegate, esc } from '../lib/dom.js?v=202609012351';
-import { confirmDelete, transactionForm } from '../lib/forms.js?v=202609012351';
-import { date, num, shares, TX_LABEL, yen } from '../lib/format.js?v=202609012351';
+import { api } from '../lib/api.js?v=202609052341';
+import { delegate, esc } from '../lib/dom.js?v=202609052341';
+import { confirmDelete, transactionForm } from '../lib/forms.js?v=202609052341';
+import { date, num, shares, TX_LABEL, yen } from '../lib/format.js?v=202609052341';
 
 const state = { search: '', type: 'ALL' };
+
+const MOVE_TYPES = ['MOVE_OUT', 'MOVE_IN'];
 
 function amount(tx) {
   if (tx.type === 'SPLIT') {
     return `<span class="muted">${num(tx.split_from, 4)} → ${num(tx.split_to, 4)}
       (×${num(tx.split_to / tx.split_from, 4)})</span>`;
+  }
+  // 振替は現金が動かない。動いたのは取得原価なので、それと分かるように添える
+  if (MOVE_TYPES.includes(tx.type)) {
+    return `<span class="muted">原価 ${yen(tx.amount)}</span>`;
   }
   const gross = tx.shares * tx.price;
   const net = tx.type === 'BUY' ? gross + tx.fee : gross - tx.fee;
@@ -30,7 +36,10 @@ export async function render(root, { navigate }) {
   const draw = () => {
     const term = state.search.trim().toLowerCase();
     const rows = transactions.filter((tx) => {
-      if (state.type !== 'ALL' && tx.type !== state.type) return false;
+      // 振替は払出・受入の 2 種類あるので、まとめて 1 つの絞り込みにする
+      const matchesType = state.type === 'ALL'
+        || (state.type === 'MOVE' ? MOVE_TYPES.includes(tx.type) : tx.type === state.type);
+      if (!matchesType) return false;
       if (!term) return true;
       return [tx.code, tx.name, tx.sector, tx.note, tx.trade_date]
         .some((f) => String(f || '').toLowerCase().includes(term));
@@ -59,11 +68,12 @@ export async function render(root, { navigate }) {
                    data-action="open" data-id="${tx.stock_id}">${esc(tx.name)}</a></td>
             <td class="muted">${esc(tx.position_label || '—')}</td>
             <td class="r">${tx.type === 'SPLIT' ? '—' : shares(tx.shares)}</td>
-            <td class="r">${tx.type === 'SPLIT' ? '—' : yen(tx.price)}</td>
+            <td class="r">${tx.type === 'SPLIT' || MOVE_TYPES.includes(tx.type) ? '—' : yen(tx.price)}</td>
             <td class="r">${amount(tx)}</td>
             <td class="muted cell-note">${esc(tx.note || '')}</td>
             <td class="r"><div class="row-actions">
-              <button class="btn btn-sm btn-ghost" data-action="edit" data-id="${tx.id}">編集</button>
+              ${MOVE_TYPES.includes(tx.type) ? ''
+    : `<button class="btn btn-sm btn-ghost" data-action="edit" data-id="${tx.id}">編集</button>`}
               <button class="btn btn-sm btn-danger" data-action="delete" data-id="${tx.id}">削除</button>
             </div></td>
           </tr>`).join('')}
@@ -79,7 +89,7 @@ export async function render(root, { navigate }) {
     <div class="toolbar">
       <input class="input search" id="ledgerSearch" placeholder="銘柄・メモ・年月で検索" value="${esc(state.search)}">
       <div class="seg">
-        ${[['ALL', 'すべて'], ['BUY', '買付'], ['SELL', '売却'], ['SPLIT', '分割']].map(([v, l]) =>
+        ${[['ALL', 'すべて'], ['BUY', '買付'], ['SELL', '売却'], ['SPLIT', '分割'], ['MOVE', '振替']].map(([v, l]) =>
     `<button data-action="type" data-value="${v}" class="${state.type === v ? 'active' : ''}">${l}</button>`).join('')}
       </div>
       <span class="spacer"></span>
@@ -110,7 +120,10 @@ export async function render(root, { navigate }) {
     },
     delete: (target) => {
       const tx = transactions.find((t) => String(t.id) === target.dataset.id);
-      confirmDelete('取引', `${tx.code} ${tx.name} · ${date(tx.trade_date)} の${TX_LABEL[tx.type]}`,
+      const label = MOVE_TYPES.includes(tx.type)
+        ? '振替(相手側の記録も一緒に消えます)'
+        : TX_LABEL[tx.type];
+      confirmDelete('取引', `${tx.code} ${tx.name} · ${date(tx.trade_date)} の${label}`,
         async () => { await api.deleteTransaction(tx.id); await reload(); });
     },
   });

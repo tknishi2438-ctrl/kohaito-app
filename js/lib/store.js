@@ -3,11 +3,13 @@
 // もとは SQLite + app/repository.py が担っていた層。保存先(GitHub / ブラウザ)は
 // persist.js が受け持ち、この層はデータの整合性だけに責任を持つ。
 
-import { computePosition, LedgerError, TX_TYPES, SPLIT } from './models.js?v=202609012351';
-import { normalizeMonth } from './format.js?v=202609012351';
+import {
+  computePosition, EPSILON, LedgerError, TX_TYPES, SPLIT, MOVE_IN, MOVE_OUT,
+} from './models.js?v=202609052341';
+import { normalizeMonth } from './format.js?v=202609052341';
 import {
   DEFAULT_MAX_SECTOR_PCT, DEFAULT_MAX_STOCK_DIVIDEND_PCT, DEFAULT_MIN_DEFENSIVE_PCT,
-} from './rules.js?v=202609012351';
+} from './rules.js?v=202609052341';
 
 export const FORMAT = 'khk-portfolio';
 export const VERSION = 2;
@@ -214,6 +216,8 @@ export class Store {
       label: String(data.label || ''),
       account: String(data.account || ''),
       note: String(data.note || ''),
+      // 分割で自動生成したロットの目印。振替を消したときに後始末できるようにする
+      from_split: Boolean(data.from_split),
       created_at: nowIso(),
       updated_at: nowIso(),
     };
@@ -232,7 +236,15 @@ export class Store {
 
   deletePosition(id) {
     const position = this.getPosition(id);
-    this.doc.transactions = this.doc.transactions.filter((t) => t.position_id !== position.id);
+    // このロットが関わる振替は、残る側の記録も一緒に消す(片側だけ残ると原価が狂う)
+    const pairIds = new Set(
+      this.doc.transactions
+        .filter((t) => t.position_id === position.id && t.pair_id)
+        .map((t) => t.pair_id),
+    );
+    this.doc.transactions = this.doc.transactions.filter(
+      (t) => t.position_id !== position.id && !(t.pair_id && pairIds.has(t.pair_id)),
+    );
     this.doc.positions = this.doc.positions.filter((p) => p.id !== position.id);
   }
 
@@ -255,7 +267,7 @@ export class Store {
   static validateTransaction(data) {
     const type = String(data.type || '').toUpperCase();
     if (!TX_TYPES.includes(type)) {
-      throw new Invalid('取引種別は BUY / SELL / SPLIT のいずれかです');
+      throw new Invalid(`取引種別が不正です: ${data.type}`);
     }
     const payload = {
       type,
@@ -264,7 +276,17 @@ export class Store {
       note: String(data.note || ''),
       shares: 0, price: 0, fee: 0, split_from: null, split_to: null,
     };
-    if (type === SPLIT) {
+    if (type === MOVE_OUT || type === MOVE_IN) {
+      const shares = Number(data.shares || 0);
+      const amount = Number(data.amount || 0);
+      if (!(shares > 0)) throw new Invalid('振替の株数は 1 以上で入力してください');
+      if (!(amount >= 0)) throw new Invalid('振替の取得原価に負の数は指定できません');
+      payload.shares = shares;
+      payload.amount = amount;
+      // 対になる相手を覚えておく。片方だけ消えると原価が合わなくなるため
+      payload.pair_id = String(data.pair_id || '');
+      payload.counterpart_position_id = Number(data.counterpart_position_id) || null;
+    } else if (type === SPLIT) {
       const from = Number(data.split_from || 0);
       const to = Number(data.split_to || 0);
       if (!(from > 0) || !(to > 0)) {
@@ -308,6 +330,62 @@ export class Store {
     return tx;
   }
 
+  /**
+   * 株式分割を記録し、増えた分を新しいロットに切り出す。
+   *
+   * もとのロットは分割前の株数のまま残し、増加分だけを新ロットへ振り替える。
+   * 取得原価は株数の比で按分するので、両ロットの平均取得単価は同じになる。
+   * 併合(比率 1 未満)や、その時点で保有ゼロの場合はロットを作らない。
+   */
+  splitPosition(positionId, data) {
+    const position = this.getPosition(positionId);
+    const snapshot = {
+      transactions: [...this.doc.transactions],
+      positions: [...this.doc.positions],
+    };
+    try {
+      const before = computePosition(this.listTransactions(position.id));
+      const split = this.createTransaction({ ...data, type: SPLIT, position_id: position.id });
+      const after = computePosition(this.listTransactions(position.id));
+
+      const moved = after.shares - before.shares;
+      if (moved <= EPSILON) return { transaction: split, position: null, moved: 0 };
+
+      // 増加分に対応する取得原価。全体では増減しない
+      const amount = after.shares > 0 ? (after.cost * moved) / after.shares : 0;
+      const siblings = this.listPositions(position.stock_id).length;
+      const created = this.createPosition({
+        stock_id: position.stock_id,
+        label: `ロット${siblings + 1}(分割)`,
+        account: position.account,
+        note: `${position.label || '既定のロット'} の分割による増加分`,
+        from_split: true,
+      });
+
+      const pairId = `mv${nextId(this.doc.transactions)}`;
+      const common = { trade_date: data.trade_date, shares: moved, amount, pair_id: pairId };
+      this.createTransaction({
+        ...common,
+        type: MOVE_OUT,
+        position_id: position.id,
+        counterpart_position_id: created.id,
+        note: `分割による増加分を ${created.label} へ`,
+      });
+      this.createTransaction({
+        ...common,
+        type: MOVE_IN,
+        position_id: created.id,
+        counterpart_position_id: position.id,
+        note: `${position.label || '既定のロット'} の分割による増加分`,
+      });
+      return { transaction: split, position: created, moved };
+    } catch (err) {
+      this.doc.transactions = snapshot.transactions;
+      this.doc.positions = snapshot.positions;
+      throw err;
+    }
+  }
+
   updateTransaction(id, patch) {
     const tx = this.getTransaction(id);
     const before = { ...tx };
@@ -324,14 +402,25 @@ export class Store {
 
   deleteTransaction(id) {
     const tx = this.getTransaction(id);
-    const index = this.doc.transactions.indexOf(tx);
-    this.doc.transactions.splice(index, 1);
+    // 振替は対で意味を持つ。片方だけ消すと取得原価の辻褄が合わなくなるので両方消す
+    const removed = tx.pair_id
+      ? this.doc.transactions.filter((t) => t.pair_id === tx.pair_id)
+      : [tx];
+    const snapshot = [...this.doc.transactions];
+    this.doc.transactions = this.doc.transactions.filter((t) => !removed.includes(t));
     try {
-      this.assertLedgerValid(tx.position_id);
+      for (const positionId of new Set(removed.map((t) => t.position_id))) {
+        this.assertLedgerValid(positionId);
+      }
     } catch (err) {
-      this.doc.transactions.splice(index, 0, tx);
+      this.doc.transactions = snapshot;
       throw err;
     }
+    // 振替を取り消した結果、分割で作られたロットが空になったら畳む
+    this.doc.positions = this.doc.positions.filter((p) => !(
+      p.from_split && !this.doc.transactions.some((t) => t.position_id === p.id)
+    ));
+    return removed.map((t) => t.id);
   }
 
   // -------------------------------------------------- IRBANK 由来の履歴

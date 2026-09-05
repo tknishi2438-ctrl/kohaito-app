@@ -4,10 +4,10 @@
 // 中身をブラウザ内の計算 + GitHub への保存に置き換えている。
 // 書き込みのたびに保存し、失敗したら画面に伝える。
 
-import { Store } from './store.js?v=202609012351';
-import * as portfolioLib from './portfolio.js?v=202609012351';
-import * as portability from './portability.js?v=202609012351';
-import { Persistence, RemoteChanged } from './persist.js?v=202609012351';
+import { Store } from './store.js?v=202609052341';
+import * as portfolioLib from './portfolio.js?v=202609052341';
+import * as portability from './portability.js?v=202609052341';
+import { Persistence, RemoteChanged } from './persist.js?v=202609052341';
 
 const store = new Store();
 const persistence = new Persistence();
@@ -124,6 +124,14 @@ export const api = {
     const tx = store.createTransaction(data);
     await persist(`取引を追加: ${tx.type} ${tx.trade_date || '日付なし'}`);
     return tx;
+  },
+  /** 分割を記録し、増加分を新しいロットに切り出す。 */
+  splitPosition: async (positionId, data) => {
+    const result = store.splitPosition(positionId, data);
+    await persist(result.position
+      ? `分割を記録: ${result.position.label} を作成`
+      : '分割を記録');
+    return result;
   },
   updateTransaction: async (id, data) => {
     const tx = store.updateTransaction(id, data);

@@ -441,6 +441,9 @@ table.data td.cell-note {
 .badge.buy { color: var(--green); border-color: var(--buy-border); background: var(--buy-bg); }
 .badge.sell { color: var(--red); border-color: var(--sell-border); background: var(--sell-bg); }
 .badge.split { color: var(--violet); border-color: var(--split-border); background: var(--split-bg); }
+/* 振替は売買ではないので、控えめな見た目にして買付・売却と取り違えないようにする */
+.badge.move_out,
+.badge.move_in { color: var(--text-2); border-color: var(--border-strong); background: var(--surface-3); }
 .badge.warn { color: var(--gold); border-color: var(--gold-dim); background: var(--warn-bg); }
 
 /* -------------------------------------------------------------- グラフ */

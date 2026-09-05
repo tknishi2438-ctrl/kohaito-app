@@ -1,8 +1,8 @@
 // 銘柄・ポジション・取引の入力フォーム(モーダル)をまとめたモジュール。
 
-import { api } from './api.js?v=202609012351';
-import { confirmDialog, esc, modal, qs, toast } from './dom.js?v=202609012351';
-import { normalizeMonth, thisMonth, TX_LABEL } from './format.js?v=202609012351';
+import { api } from './api.js?v=202609052341';
+import { confirmDialog, esc, modal, qs, toast } from './dom.js?v=202609052341';
+import { normalizeMonth, thisMonth, TX_LABEL } from './format.js?v=202609052341';
 
 const CLASSIFICATIONS = [
   ['K', 'K — 景気敏感株'],
@@ -130,7 +130,10 @@ export function transactionForm(tx, positionId, onDone) {
     </div>
     <p class="hint" style="margin-top:-6px">
       1株が2株になる分割なら「1 → 2」。10株を1株にする併合なら「10 → 1」。<br>
-      株数だけが比率倍され、取得原価は変わりません(平均取得単価が自動で調整されます)。
+      株数だけが比率倍され、取得原価は変わりません(平均取得単価が自動で調整されます)。<br>
+      ${isNew ? 'このロットは分割前の株数のまま残り、<b>増えた分は新しいロットになります</b>'
+    + '(証券会社の表示に合わせるため)。併合の場合はロットを作らず、その場で調整します。'
+    : '既に記録した分割を編集しても、ロットの分かれ方は変わりません。'}
     </p>`;
 
   modal({
@@ -188,6 +191,15 @@ export function transactionForm(tx, positionId, onDone) {
         payload.shares = Number(data.shares);
         payload.price = Number(data.price);
         payload.fee = Number(data.fee || 0);
+      }
+      // 新しく記録する分割は、増えた分を別ロットに切り出す
+      if (isNew && data.type === 'SPLIT') {
+        const result = await api.splitPosition(positionId, payload);
+        toast(result.position
+          ? `分割を記録し、${result.position.label} を作成しました`
+          : '分割を記録しました', 'success');
+        onDone?.();
+        return;
       }
       if (isNew) await api.createTransaction({ ...payload, position_id: positionId });
       else await api.updateTransaction(tx.id, payload);

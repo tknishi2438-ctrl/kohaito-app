@@ -21,16 +21,28 @@ export function qsa(selector, root = document) {
   return Array.from(root.querySelectorAll(selector));
 }
 
-/** data-action 属性を使ったイベント委譲。 */
+// 同じ要素に登録済みの委譲を覚えておく。
+// 画面を描き直すたびに登録すると、古い(閉じ込めたデータが古い)ハンドラが
+// 積み重なって多重に動いてしまうため、常に最新の 1 つだけを残す。
+const DELEGATED = new WeakMap();
+
+/** data-action 属性を使ったイベント委譲。同じ要素・同じ種類なら差し替える。 */
 export function delegate(root, eventName, handlers) {
-  root.addEventListener(eventName, (event) => {
+  const registered = DELEGATED.get(root) || new Map();
+  const previous = registered.get(eventName);
+  if (previous) root.removeEventListener(eventName, previous);
+
+  const listener = (event) => {
     const target = event.target.closest('[data-action]');
     if (!target || !root.contains(target)) return;
     const handler = handlers[target.dataset.action];
     if (!handler) return;
     event.preventDefault();
     handler(target, event);
-  });
+  };
+  root.addEventListener(eventName, listener);
+  registered.set(eventName, listener);
+  DELEGATED.set(root, registered);
 }
 
 export function toast(message, kind = 'info', ms = 4200) {

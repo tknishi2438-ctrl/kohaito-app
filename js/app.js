@@ -1,14 +1,14 @@
 // 画面遷移(ハッシュルーティング)と初期化。
 
-import { api, onStatusChange } from './lib/api.js?v=202609012351';
-import { init as initData } from './lib/api.js?v=202609012351';
-import { esc, qs, qsa, toast } from './lib/dom.js?v=202609012351';
-import * as theme from './lib/theme.js?v=202609012351';
-import * as dashboard from './views/dashboard.js?v=202609012351';
-import * as holdings from './views/holdings.js?v=202609012351';
-import * as ledger from './views/ledger.js?v=202609012351';
-import * as settings from './views/settings.js?v=202609012351';
-import * as stockDetail from './views/stockDetail.js?v=202609012351';
+import { api, onStatusChange } from './lib/api.js?v=202609052341';
+import { init as initData } from './lib/api.js?v=202609052341';
+import { esc, qs, qsa, toast } from './lib/dom.js?v=202609052341';
+import * as theme from './lib/theme.js?v=202609052341';
+import * as dashboard from './views/dashboard.js?v=202609052341';
+import * as holdings from './views/holdings.js?v=202609052341';
+import * as ledger from './views/ledger.js?v=202609052341';
+import * as settings from './views/settings.js?v=202609052341';
+import * as stockDetail from './views/stockDetail.js?v=202609052341';
 
 const ROUTES = [
   { pattern: /^dashboard$/, tab: 'dashboard', view: dashboard },

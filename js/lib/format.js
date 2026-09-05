@@ -79,7 +79,9 @@ export function normalizeMonth(value) {
   return `${m[1]}-${m[2].padStart(2, '0')}`;
 }
 
-export const TX_LABEL = { BUY: '買付', SELL: '売却', SPLIT: '分割' };
+export const TX_LABEL = {
+  BUY: '買付', SELL: '売却', SPLIT: '分割', MOVE_OUT: '払出', MOVE_IN: '受入',
+};
 
 /**
  * 銘柄の分類。元のスプレッドシートの K / D 列をそのまま引き継いでいる。

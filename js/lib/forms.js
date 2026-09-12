@@ -1,10 +1,10 @@
 // 銘柄・ポジション・取引の入力フォーム(モーダル)をまとめたモジュール。
 
-import { api } from './api.js?v=202609121924';
-import { confirmDialog, esc, modal, qs, toast } from './dom.js?v=202609121924';
-import { normalizeMonth, shares as fmtShares, thisMonth, TX_LABEL, yen, yenPrecise } from './format.js?v=202609121924';
-import { previewSplit } from './models.js?v=202609121924';
-import { classifyBySector } from './rules.js?v=202609121924';
+import { api } from './api.js?v=202609121939';
+import { confirmDialog, esc, modal, qs, toast } from './dom.js?v=202609121939';
+import { normalizeMonth, shares as fmtShares, thisMonth, TX_LABEL, yen, yenPrecise } from './format.js?v=202609121939';
+import { previewSplit } from './models.js?v=202609121939';
+import { classifyBySector } from './rules.js?v=202609121939';
 
 const CLASSIFICATIONS = [
   ['AUTO', 'おまかせ — セクターから決める'],
@@ -51,7 +51,7 @@ export function stockForm(stock, onDone) {
     body: `
       <div class="field-row">
         ${field('証券コード', input('code', stock?.code, 'required maxlength="5" placeholder="8058"'),
-    isNew ? '株価と配当は、登録後の自動更新で埋まります。<br>'
+    isNew ? 'これだけ入れれば登録できます。銘柄名・株価・配当は次の株価更新で埋まります。<br>'
       + '買付を記録するまでは<b>購入候補</b>として扱われます。' : '')}
         ${field('分類', `<select class="select" name="classification">
           ${CLASSIFICATIONS.map(([v, l]) => {
@@ -61,7 +61,8 @@ export function stockForm(stock, onDone) {
   }).join('')}
         </select>`, '<span data-class-hint></span>')}
       </div>
-      ${field('銘柄名', input('name', stock?.name, 'required placeholder="三菱商事"'))}
+      ${field('銘柄名', input('name', stock?.name, 'placeholder="三菱商事"'),
+    isNew ? '空のままでも登録できます。次の株価更新で IRBANK の社名が入ります。' : '')}
       <div class="field-row">
         ${field('セクター', input('sector', stock?.sector, 'placeholder="卸売" list="sectorList"'))}
         ${field('おすすめ購入時期', input('timing', stock?.timing, 'placeholder="2025/04"'))}

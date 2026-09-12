@@ -5,13 +5,13 @@
 
 import {
   computePosition, LedgerError, previewSplit, TX_TYPES, SPLIT, MOVE_IN, MOVE_OUT,
-} from './models.js?v=202609121924';
-import { lotName, normalizeMonth } from './format.js?v=202609121924';
+} from './models.js?v=202609121939';
+import { lotName, normalizeMonth } from './format.js?v=202609121939';
 import {
   classifyBySector,
   DEFAULT_MAX_SECTOR_PCT, DEFAULT_MAX_STOCK_DIVIDEND_PCT, DEFAULT_MIN_DEFENSIVE_PCT,
   DEFAULT_SECOND_BUY_DROP_PCT, DEFAULT_THIRD_BUY_DROP_PCT,
-} from './rules.js?v=202609121924';
+} from './rules.js?v=202609121939';
 
 export const FORMAT = 'khk-portfolio';
 export const VERSION = 2;
@@ -172,10 +172,11 @@ export class Store {
 
   createStock(data) {
     const code = String(data.code || '').trim();
-    const name = String(data.name || '').trim();
     if (!code) throw new Invalid('証券コードは必須です');
-    if (!name) throw new Invalid('銘柄名は必須です');
     if (this.findStockByCode(code)) throw new Conflict(`証券コード ${code} は既に登録されています`);
+    // 銘柄名は空でも登録できる。仮にコードを入れておき、次の株価更新で
+    // IRBANK から入る(sync/update.py がコードのままの名前を差し替える)
+    const name = String(data.name || '').trim() || code;
 
     const stock = {
       id: nextId(this.doc.stocks),

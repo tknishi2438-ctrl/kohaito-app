@@ -1,9 +1,9 @@
 // ダッシュボード: 資産サマリー・分散ルール・構成比・要対応の一覧。
 
-import { api } from '../lib/api.js?v=202609121924';
-import * as charts from '../lib/charts.js?v=202609121924';
-import { delegate, esc, modal, toast } from '../lib/dom.js?v=202609121924';
-import { pct, signClass, yen } from '../lib/format.js?v=202609121924';
+import { api } from '../lib/api.js?v=202609121939';
+import * as charts from '../lib/charts.js?v=202609121939';
+import { delegate, esc, modal, toast } from '../lib/dom.js?v=202609121939';
+import { pct, signClass, yen } from '../lib/format.js?v=202609121939';
 
 function summaryCard(label, value, { cls = '', sub = '' } = {}) {
   return `
@@ -40,6 +40,13 @@ function attentionNotice(attention, summary) {
   }
   if (attention.no_market_price.length) {
     items.push(`株価が未取得の銘柄が <b>${attention.no_market_price.length}</b> 件あります`);
+  }
+  if ((attention.no_name || []).length) {
+    items.push(
+      `銘柄名が未取得の銘柄が <b>${attention.no_name.length}</b> 件あります`
+      + `（${attention.no_name.slice(0, 3).map((s) => esc(s.code)).join('、')}`
+      + `${attention.no_name.length > 3 ? ' ほか' : ''}）`,
+    );
   }
   if (!items.length) return '';
   return `

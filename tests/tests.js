@@ -1,18 +1,18 @@
 // 計算ロジックのテスト。Python 版 tests/test_models.py・test_repository.py の移植。
 
-import { describe, it, expect } from './runner.js?v=202609121924';
+import { describe, it, expect } from './runner.js?v=202609121939';
 import {
   aggregate, computePosition, dividendMonths, evaluate, firstBuy, LedgerError, previewSplit,
-} from '../js/lib/models.js?v=202609121924';
+} from '../js/lib/models.js?v=202609121939';
 import {
   classifyBySector, evaluateDefensive, evaluateSectors, evaluateStockDividends,
   headroom, planAveraging,
-} from '../js/lib/rules.js?v=202609121924';
-import { Store } from '../js/lib/store.js?v=202609121924';
-import { fromBase64, toBase64 } from '../js/lib/github.js?v=202609121924';
-import { delegate } from '../js/lib/dom.js?v=202609121924';
-import { date as formatDate, dateTime as formatDateTime, normalizeMonth } from '../js/lib/format.js?v=202609121924';
-import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202609121924';
+} from '../js/lib/rules.js?v=202609121939';
+import { Store } from '../js/lib/store.js?v=202609121939';
+import { fromBase64, toBase64 } from '../js/lib/github.js?v=202609121939';
+import { delegate } from '../js/lib/dom.js?v=202609121939';
+import { date as formatDate, dateTime as formatDateTime, normalizeMonth } from '../js/lib/format.js?v=202609121939';
+import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202609121939';
 
 const tx = (id, type, date, extra = {}) => ({ id, type, trade_date: date, ...extra });
 
@@ -351,10 +351,10 @@ describe('銘柄の登録と削除', () => {
     expect(() => store.createStock({ code: '8058', name: '別の名前' })).toThrow('既に登録');
   });
 
-  it('コードと銘柄名は必須', () => {
+  it('必須はコードだけ(銘柄名はあとから入る)', () => {
     const store = newStore();
     expect(() => store.createStock({ code: '', name: 'x' })).toThrow('証券コード');
-    expect(() => store.createStock({ code: '1234', name: '' })).toThrow('銘柄名');
+    expect(store.createStock({ code: '1234', name: '' }).name).toBe('1234');
   });
 
   it('銘柄を消すとロットと取引も消える', () => {
@@ -885,6 +885,41 @@ describe('分割で増えた分を別ロットに切り出す', () => {
     expect(failed).toBe(true);
     expect(store.listPositions(stock.id).length).toBe(1);
     expect(store.listTransactions(position.id).length).toBe(1);
+  });
+});
+
+describe('コードだけでの登録', () => {
+  it('銘柄名が空ならコードを仮の名前にする', () => {
+    const store = new Store();
+    const stock = store.createStock({ code: '8058' });
+    expect(stock.name).toBe('8058');
+  });
+
+  it('コードが無ければ登録できない', () => {
+    const store = new Store();
+    let failed = false;
+    try {
+      store.createStock({ name: '名前だけ' });
+    } catch {
+      failed = true;
+    }
+    expect(failed).toBe(true);
+  });
+
+  it('名前が未取得の銘柄をお知らせに出す', () => {
+    const store = new Store();
+    store.createStock({ code: '8058' });
+    store.createStock({ code: '9433', name: 'KDDI' });
+    const { no_name: pending } = dashboard(store).needs_attention;
+    expect(pending.map((s) => s.code)).toEqual(['8058']);
+  });
+
+  it('購入候補の株価未取得もお知らせに出す', () => {
+    // 保有していなくても、買うかどうかの判断に株価が要る
+    const store = new Store();
+    const stock = store.createStock({ code: '8058', name: '三菱商事' });
+    store.createPosition({ stock_id: stock.id });
+    expect(dashboard(store).needs_attention.no_market_price.map((s) => s.code)).toEqual(['8058']);
   });
 });
 

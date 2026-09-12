@@ -3,11 +3,11 @@
 
 import {
   aggregate, computePosition, dividendMonths, EPSILON, evaluate, firstBuy, sortTransactions,
-} from './models.js?v=202609121924';
+} from './models.js?v=202609121939';
 import {
   evaluateDefensive, evaluateSectors, evaluateStockDividends, planAveraging,
-} from './rules.js?v=202609121924';
-import { lotName } from './format.js?v=202609121924';
+} from './rules.js?v=202609121939';
+import { lotName } from './format.js?v=202609121939';
 
 function round(value, digits) {
   const f = 10 ** digits;
@@ -278,8 +278,12 @@ export function dashboard(store) {
     by_sector: bySector,
     by_classification: byClassification,
     needs_attention: {
-      no_market_price: held.filter((v) => !v.market_price)
+      // 購入候補も株価が要る(買うかどうかの判断に使うため)
+      no_market_price: views.filter((v) => v.status !== 'sold' && !v.market_price)
         .map((v) => ({ id: v.id, code: v.code, name: v.name })),
+      // 名前がコードのままの銘柄。次の株価更新で IRBANK から入る
+      no_name: views.filter((v) => v.name === v.code)
+        .map((v) => ({ id: v.id, code: v.code })),
       undated_transactions: undatedTransactions(store),
       sector_over_limit: sectorRule.over.map((r) => ({
         label: r.label, share_pct: r.share_pct, headroom: r.headroom,

@@ -1,11 +1,11 @@
 // データ管理: 保存先(GitHub)の設定、書き出し、読み込み。
 
-import { api } from '../lib/api.js?v=202609121727';
-import { confirmDialog, delegate, esc, modal, qs, toast } from '../lib/dom.js?v=202609121727';
-import { dateTime } from '../lib/format.js?v=202609121727';
-import { download } from '../lib/portability.js?v=202609121727';
-import { GitHubStore } from '../lib/github.js?v=202609121727';
-import { getConfig, setConfig } from '../lib/persist.js?v=202609121727';
+import { api } from '../lib/api.js?v=202609121732';
+import { confirmDialog, delegate, esc, modal, qs, toast } from '../lib/dom.js?v=202609121732';
+import { dateTime } from '../lib/format.js?v=202609121732';
+import { download } from '../lib/portability.js?v=202609121732';
+import { GitHubStore } from '../lib/github.js?v=202609121732';
+import { getConfig, setConfig } from '../lib/persist.js?v=202609121732';
 
 /** ファイル選択ダイアログを開いてテキストとして読む。 */
 function pickFile(accept) {

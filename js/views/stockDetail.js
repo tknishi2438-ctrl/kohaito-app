@@ -1,10 +1,10 @@
 // 銘柄詳細: ロットごとの取引台帳と、IRBANK 由来の配当・営業利益の推移。
 
-import { api } from '../lib/api.js?v=202609121727';
-import * as charts from '../lib/charts.js?v=202609121727';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609121727';
-import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609121727';
-import { classification, date, dateTime, fullDate, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609121727';
+import { api } from '../lib/api.js?v=202609121732';
+import * as charts from '../lib/charts.js?v=202609121732';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609121732';
+import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609121732';
+import { classification, date, dateTime, fullDate, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609121732';
 
 const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
@@ -74,7 +74,11 @@ function averagingStrip(position) {
   return `
     <div class="lot-averaging${plan.stopped ? ' stopped' : ''}">
       <span class="lot-averaging-label">ナンピン</span>
-      ${plan.stopped ? '<span class="badge sell">打止め</span>' : ''}
+      <label class="lot-stop${plan.stopped ? ' on' : ''}"
+             title="これ以上は買い増さないロットとして、買い時の知らせから外します">
+        <input type="checkbox" data-action="toggle-stop" data-id="${position.id}"
+               ${plan.stopped ? 'checked' : ''}>打止め
+      </label>
       <span class="lot-step"><span class="muted">1回目</span>
         <b>${yen(plan.base_price)}</b>
         ${position.first_buy?.split_ratio > 1
@@ -294,6 +298,15 @@ export async function render(root, { navigate, params }) {
     'add-tx': (target) => {
       const id = Number(target.dataset.position);
       transactionForm(null, id, reload, splitContext(stock, id));
+    },
+    // 打止めはその場で切り替える。DOM ではなく今の値を反転させる
+    // (委譲側で既定の動作を止めているため、チェック状態は当てにしない)
+    'toggle-stop': async (target) => {
+      const id = Number(target.dataset.id);
+      const position = stock.positions.find((p) => p.id === id);
+      await api.updatePosition(id, { averaging_stopped: !position.averaging_stopped });
+      toast(position.averaging_stopped ? '打止めを解除しました' : '打止めにしました', 'success');
+      reload();
     },
     // 分割は結果が分かりにくいので、専用のボタンから見込みつきで開く
     split: (target) => {

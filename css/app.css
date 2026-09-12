@@ -710,9 +710,17 @@ table.data td.cell-note {
 /* 打止めにしたロット。目安は残すが、買い時としては見ない */
 .lot-averaging.stopped .lot-step b { color: var(--text-3); font-weight: 400; }
 
-/* 打止めなどの切り替え */
-.check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-1); cursor: pointer; }
-.check input { width: 15px; height: 15px; accent-color: var(--gold); cursor: pointer; }
+/* ナンピン行に置く打止めの切り替え */
+.lot-stop {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: var(--text-3);
+  cursor: pointer;
+  user-select: none;
+}
+.lot-stop input { width: 14px; height: 14px; accent-color: var(--red); cursor: pointer; margin: 0; }
+.lot-stop.on { color: var(--red); font-weight: 700; }
 
 /* ------------------------------------------------- 分割の実行前プレビュー */
 

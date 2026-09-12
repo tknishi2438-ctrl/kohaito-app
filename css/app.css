@@ -814,8 +814,8 @@ table.data td.cell-note {
 
 .notice {
   display: flex;
-  align-items: flex-start;
-  gap: 10px;
+  flex-direction: column;
+  gap: 7px;
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-left: 3px solid var(--gold-dim);
@@ -826,7 +826,27 @@ table.data td.cell-note {
   margin-bottom: 16px;
 }
 .notice b { color: var(--gold); font-weight: 500; }
-.notice .btn { margin-left: auto; }
+.notice .btn { align-self: flex-start; }
+.notice-title {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+/* 件数。何件あるか見出しで分かるようにする */
+.notice-count {
+  display: inline-block;
+  min-width: 17px;
+  padding: 0 5px;
+  margin-left: 4px;
+  border-radius: 999px;
+  background: var(--gold);
+  color: #fff;
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
 
 .progress {
   height: 4px;

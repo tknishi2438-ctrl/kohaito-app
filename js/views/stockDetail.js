@@ -1,10 +1,10 @@
 // 銘柄詳細: ロットごとの取引台帳と、IRBANK 由来の配当・営業利益の推移。
 
-import { api } from '../lib/api.js?v=202609121659';
-import * as charts from '../lib/charts.js?v=202609121659';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609121659';
-import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609121659';
-import { classification, date, dateTime, fullDate, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609121659';
+import { api } from '../lib/api.js?v=202609121705';
+import * as charts from '../lib/charts.js?v=202609121705';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609121705';
+import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609121705';
+import { classification, date, dateTime, fullDate, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609121705';
 
 const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
@@ -94,6 +94,7 @@ function positionBlock(position, stock) {
         <div class="position-stats">
           <span>保有<b>${shares(m.shares)} 株</b></span>
           <span>平均取得<b>${m.avg_price ? yenPrecise(m.avg_price) : '—'}</b></span>
+          <span>現在値<b>${stock.market_price ? yen(stock.market_price) : '—'}</b></span>
           <span>投資額<b>${yen(m.cost)}</b></span>
           ${m.realized_pl ? `<span>実現損益<b class="${signClass(m.realized_pl)}">${yen(m.realized_pl, { sign: true })}</b></span>` : ''}
         </div>

@@ -1,10 +1,10 @@
 // 銘柄詳細: ロットごとの取引台帳と、IRBANK 由来の配当・営業利益の推移。
 
-import { api } from '../lib/api.js?v=202609121841';
-import * as charts from '../lib/charts.js?v=202609121841';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609121841';
-import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609121841';
-import { classification, date, dateTime, fullDate, lotName, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609121841';
+import { api } from '../lib/api.js?v=202609121843';
+import * as charts from '../lib/charts.js?v=202609121843';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609121843';
+import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609121843';
+import { classification, date, dateTime, fullDate, lotName, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609121843';
 
 const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 

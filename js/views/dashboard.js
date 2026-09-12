@@ -1,9 +1,9 @@
 // ダッシュボード: 資産サマリー・分散ルール・構成比・要対応の一覧。
 
-import { api } from '../lib/api.js?v=202609121841';
-import * as charts from '../lib/charts.js?v=202609121841';
-import { delegate, esc, modal, toast } from '../lib/dom.js?v=202609121841';
-import { pct, signClass, yen } from '../lib/format.js?v=202609121841';
+import { api } from '../lib/api.js?v=202609121843';
+import * as charts from '../lib/charts.js?v=202609121843';
+import { delegate, esc, modal, toast } from '../lib/dom.js?v=202609121843';
+import { pct, signClass, yen } from '../lib/format.js?v=202609121843';
 
 function summaryCard(label, value, { cls = '', sub = '' } = {}) {
   return `
@@ -236,8 +236,8 @@ function averagingCard(plan) {
         ${plan.ready.map((r) => row(r, true)).join('')}
         ${plan.near.map((r) => row(r, false)).join('')}
       </tbody></table>`
-    : `<p class="muted" style="margin:0">いま買い時の銘柄はありません。
-        ${plan.watching} 銘柄を見ています。</p>`;
+    : `<p class="rule-verdict buy-alert calm">いま買い時の銘柄はありません
+        <span class="muted">${plan.watching} 銘柄を見ています</span></p>`;
 
   return `
     <div class="card">

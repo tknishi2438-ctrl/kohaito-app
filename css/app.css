@@ -499,6 +499,9 @@ table.data td.cell-note {
   color: var(--text-1);
 }
 .rule-verdict.buy-alert .badge { font-size: 12px; vertical-align: 2px; margin-right: 4px; }
+/* 買い時が無いときは、大きさは揃えつつ穏やかに */
+.rule-verdict.buy-alert.calm { margin: 0; color: var(--text-2); }
+.rule-verdict.buy-alert .muted { font-size: 12px; font-weight: 400; margin-left: 8px; }
 
 /* 構成比 + 上限ラインの横棒 */
 .limit-bars { position: relative; }

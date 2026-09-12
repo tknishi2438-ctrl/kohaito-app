@@ -748,11 +748,22 @@ table.data td.cell-note {
 .data th.detail-col,
 .data td.detail-col { background: var(--detail-col); }
 
-/* 銘柄名から企業サイトへ */
-.site-link { color: inherit; text-decoration: none; cursor: pointer; }
-.site-link:hover { color: var(--gold); text-decoration: underline; text-underline-offset: 3px; }
-.site-mark { margin-left: 3px; font-size: 10px; color: var(--text-3); font-weight: 400; }
-.site-link:hover .site-mark { color: var(--gold); }
+/* 銘柄名の後ろに置く、企業サイトへの入口 */
+.site-mark {
+  display: inline-block;
+  padding: 0 5px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  font-family: var(--mono);
+  font-size: 10px;
+  line-height: 16px;
+  color: var(--text-3);
+  font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+  transition: color .15s, border-color .15s, background .15s;
+}
+.site-mark:hover { color: var(--gold); border-color: var(--gold-dim); background: var(--warn-bg); }
 
 /* 業績指標の合計点。銘柄名の横に置く */
 .score-chip {

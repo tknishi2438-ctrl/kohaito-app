@@ -1,9 +1,9 @@
 // 銘柄一覧: 保有中の銘柄と購入候補を、並べ替え・絞り込みしながら見る。
 
-import { api } from '../lib/api.js?v=202609122347';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609122347';
-import { stockForm } from '../lib/forms.js?v=202609122347';
-import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609122347';
+import { api } from '../lib/api.js?v=202609130048';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609130048';
+import { stockForm } from '../lib/forms.js?v=202609130048';
+import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609130048';
 
 const COLUMNS = [
   { key: 'code', label: 'コード', sort: (a, b) => a.code.localeCompare(b.code) },
@@ -78,9 +78,11 @@ function cellHtml(view, key) {
     case 'name': return `<td><div class="cell-name">
         <span class="badge ${view.classification.toLowerCase()}"
               title="${esc(classification(view.classification).label)}">${esc(view.classification)}</span>
-        <strong><a class="site-link" data-action="open-site" data-id="${view.id}"
-           title="${view.website ? '企業サイトを開く' : '企業サイトを検索する'}"
-           >${esc(view.name)}<span class="site-mark">↗</span></a></strong>
+        <strong>${esc(view.name)}</strong>
+        ${/* 名前は行と同じく銘柄詳細へ。企業サイトはこの印から開く */ ''}
+        <span class="site-mark" data-action="open-site" data-id="${view.id}"
+              title="${view.website ? '企業サイトを開く' : '企業サイトを検索する'}"
+              role="button">HP</span>
         ${view.status === 'candidate' ? '<span class="badge">購入候補</span>' : ''}
         ${view.status === 'sold' ? '<span class="badge">売却済み</span>' : ''}
         ${view.position_count > 1 ? `<span class="badge warn">${view.position_count}ロット</span>` : ''}

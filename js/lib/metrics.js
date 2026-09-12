@@ -181,6 +181,49 @@ export const STATUS_LABEL = {
 export const STATUS_POINTS = { ok: 5, warn: 3, bad: 0, unknown: 0 };
 export const POINTS_PER_ITEM = 5;
 
+// 点数に数える指標。銘柄詳細のグラフの並びと同じ。
+export const SCORED_METRICS = [
+  'revenue', 'operating_margin', 'eps', 'operating_cf',
+  'dividend_per_share', 'payout_ratio', 'equity_ratio', 'cash',
+];
+
+/**
+ * 配当履歴を、減配判定に渡せる形にする。
+ *
+ * 同じ年度に予想・修正・実績があれば実績を優先し、値は分割調整後を使う。
+ * 分割で 1 株あたりが下がっただけの年を減配と取り違えないため。
+ */
+export function dividendJudgeRows(dividendHistory) {
+  const byYear = new Map();
+  for (const row of (dividendHistory || []).filter((r) => r.total !== null)) {
+    const current = byYear.get(row.fiscal_year);
+    if (!current || row.kind === '実績' || (current.kind !== '実績' && row.kind === '修正')) {
+      byYear.set(row.fiscal_year, row);
+    }
+  }
+  return [...byYear.keys()].sort().map((year) => ({
+    fiscal_year: year,
+    dividend_per_share: byYear.get(year).adjusted ?? byYear.get(year).total,
+    forecast: byYear.get(year).kind !== '実績',
+  }));
+}
+
+/** 1 銘柄ぶんの判定一覧。画面に出すのと点数に使うのとで同じものを使う。 */
+export function judgeStock(profitHistory, dividendHistory) {
+  const dividendRows = dividendJudgeRows(dividendHistory);
+  return SCORED_METRICS.map((key) => ({
+    key,
+    verdict: key === 'dividend_per_share'
+      ? judgeMetric(key, dividendRows)
+      : judgeMetric(key, profitHistory),
+  }));
+}
+
+/** 1 銘柄ぶんの合計点。 */
+export function scoreStock(profitHistory, dividendHistory) {
+  return scoreVerdicts(judgeStock(profitHistory, dividendHistory));
+}
+
 /**
  * 指標の判定をまとめて点数にする。
  * verdicts は画面に出したものと同じ判定([{key, verdict}])を渡す。

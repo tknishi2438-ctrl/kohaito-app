@@ -3,11 +3,12 @@
 
 import {
   aggregate, computePosition, dividendMonths, EPSILON, evaluate, firstBuy, sortTransactions,
-} from './models.js?v=202609122250';
+} from './models.js?v=202609122323';
 import {
   evaluateDefensive, evaluateSectors, evaluateStockDividends, planAveraging,
-} from './rules.js?v=202609122250';
-import { lotName } from './format.js?v=202609122250';
+} from './rules.js?v=202609122323';
+import { lotName } from './format.js?v=202609122323';
+import { scoreStock } from './metrics.js?v=202609122323';
 
 function round(value, digits) {
   const f = 10 ** digits;
@@ -85,7 +86,7 @@ function stockStatus(rolled) {
 }
 
 /** 銘柄単位の合計。複数ロットは合算した数値も併せて返す。 */
-function buildStockView(stock, positions, settings = {}) {
+function buildStockView(stock, positions, settings = {}, histories = {}) {
   const sum = (key) => positions.reduce((acc, p) => acc + p.metrics[key], 0);
   const shares = sum('shares');
   const cost = sum('cost');
@@ -112,6 +113,8 @@ function buildStockView(stock, positions, settings = {}) {
     position_count: positions.length,
     // 一度も買っていない銘柄は購入候補。売り切った銘柄とは区別する
     status: stockStatus(rolled),
+    // 高配当株としての適正。銘柄詳細で出す判定と同じ計算
+    score: scoreStock(histories.profits || [], histories.dividends || []),
     // 銘柄としては、いちばん買い時に近いロットを代表として見せる
     averaging: leadingLot(positions),
     metrics: evaluate(rolled, stock.dividend_per_share || 0, stock.market_price),
@@ -137,7 +140,22 @@ export function listStockViews(store) {
     );
   }
 
-  return store.listStocks().map((s) => buildStockView(s, byStock.get(s.id) || [], settings));
+  // 評価点は決算・配当の履歴から出すので、銘柄ごとにまとめておく
+  const profitsBy = new Map();
+  for (const row of store.doc.profit_history) {
+    if (!profitsBy.has(row.stock_id)) profitsBy.set(row.stock_id, []);
+    profitsBy.get(row.stock_id).push(row);
+  }
+  const dividendsBy = new Map();
+  for (const row of store.doc.dividend_history) {
+    if (!dividendsBy.has(row.stock_id)) dividendsBy.set(row.stock_id, []);
+    dividendsBy.get(row.stock_id).push(row);
+  }
+
+  return store.listStocks().map((s) => buildStockView(s, byStock.get(s.id) || [], settings, {
+    profits: (profitsBy.get(s.id) || []).sort((a, b) => a.fiscal_year - b.fiscal_year),
+    dividends: dividendsBy.get(s.id) || [],
+  }));
 }
 
 export function getStockView(store, stockId) {
@@ -146,11 +164,13 @@ export function getStockView(store, stockId) {
   const positions = store.listPositions(stock.id).map((p) => (
     buildPositionView(p, stock, store.listTransactions(p.id), settings)
   ));
-  const view = buildStockView(stock, positions, settings);
+  const dividends = store.getDividendHistory(stock.id);
+  const profits = store.getProfitHistory(stock.id);
+  const view = buildStockView(stock, positions, settings, { profits, dividends });
   const positionIds = new Set(positions.map((p) => p.id));
 
-  view.dividend_history = store.getDividendHistory(stock.id);
-  view.profit_history = store.getProfitHistory(stock.id);
+  view.dividend_history = dividends;
+  view.profit_history = profits;
   view.transactions = sortTransactions(
     store.doc.transactions.filter((t) => positionIds.has(t.position_id)),
   ).map((t) => ({ ...t, stock_id: stock.id }));

@@ -1,14 +1,15 @@
 // 銘柄一覧: 保有中の銘柄と購入候補を、並べ替え・絞り込みしながら見る。
 
-import { api } from '../lib/api.js?v=202609122250';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609122250';
-import { stockForm } from '../lib/forms.js?v=202609122250';
-import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609122250';
+import { api } from '../lib/api.js?v=202609122323';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609122323';
+import { stockForm } from '../lib/forms.js?v=202609122323';
+import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609122323';
 
 const COLUMNS = [
   { key: 'code', label: 'コード', sort: (a, b) => a.code.localeCompare(b.code) },
   { key: 'name', label: '銘柄', sort: (a, b) => a.name.localeCompare(b.name, 'ja') },
   { key: 'sector', label: 'セクター', sort: (a, b) => (a.sector || '').localeCompare(b.sector || '', 'ja'), detail: true },
+  { key: 'score', label: '評価点', num: true },
   // 現在値と、その隣に見比べるナンピンの目安を先頭に置く
   { key: 'market_price', label: '現在値', num: true },
   { key: 'next_buy_price', label: 'ナンピン', num: true },
@@ -64,6 +65,7 @@ const state = {
 };
 
 function value(view, key) {
+  if (key === 'score') return view.score?.total ?? null;
   if (key === 'next_buy_price') return view.averaging?.next?.target_price ?? null;
   if (key in view.metrics) return view.metrics[key];
   return view[key];
@@ -86,6 +88,18 @@ function cellHtml(view, key) {
     : ''}
       </div></td>`;
     case 'sector': return `<td class="muted">${esc(view.sector || '—')}</td>`;
+    // 業績指標の判定を合計した点。満点に対する割合で色を変える
+    case 'score': {
+      const score = view.score;
+      if (!score || !score.max) return '<td class="r muted">—</td>';
+      const tone = score.pct >= 80 ? 'pos' : score.pct >= 60 ? 'gold' : 'neg';
+      const title = `${score.total} / ${score.max}点`
+        + `${score.unknown ? ` · ${score.unknown} 項目はデータ待ち` : ''}`;
+      return `<td class="r" title="${esc(title)}">
+        <b class="${tone}">${score.total}</b>
+        <span class="muted" style="font-size:11px">/${score.max}</span>
+      </td>`;
+    }
     case 'shares': return `<td class="r">${shares(m.shares)}</td>`;
     case 'avg_price': return `<td class="r">${m.avg_price ? yen(m.avg_price) : '—'}</td>`;
     case 'market_price': return `<td class="r">${view.market_price ? yen(view.market_price) : '<span class="muted">—</span>'}</td>`;

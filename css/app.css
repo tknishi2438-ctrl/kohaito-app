@@ -68,17 +68,19 @@
   --mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
 }
 
-/* --- 暗いテーマ ------------------------------------------------------- */
+/* --- 暗いテーマ -------------------------------------------------------
+   黒ではなく紺を地にする。青みを残したまま暗くすると沈んだ印象になるため、
+   彩度を上げて「濃い紺」と分かる明るさに置いている。 */
 :root[data-theme="dark"] {
-  --ink:          #0f1218;
-  --surface:      #171c25;
-  --surface-2:    #1e242f;
-  --surface-3:    #262e3c;
-  --border:       #2a3240;
-  --border-strong:#3a4356;
-  --text-1:       #edeff3;
-  --text-2:       #9aa3b2;
-  --text-3:       #7f879b;
+  --ink:          #0d1730;
+  --surface:      #15223f;
+  --surface-2:    #1b2a4b;
+  --surface-3:    #243358;
+  --border:       #27365e;
+  --border-strong:#3b4e80;
+  --text-1:       #eaeefa;
+  --text-2:       #9daaca;
+  --text-3:       #8290b2;
 
   --gold:         #c9a24b;
   --gold-dim:     #8a712f;
@@ -87,7 +89,7 @@
   --teal:         #4f9c93;
   --coral:        #c97b54;
   --green:        #5fa378;
-  --red:          #c1615c;
+  --red:          #d2716b;   /* 紺の地では沈みやすいので、少し明るくする */
   --violet:       #8878c4;
   --blue:         #5b87c4;
 
@@ -95,18 +97,19 @@
   --k-color:      #c33a30;
   --d-color:      #2d6cb4;
   --on-classification: #ffffff;
-  --buy-bg:       #16261c;  --buy-border:   #2c4436;
-  --sell-bg:      #281a19;  --sell-border:  #4c2f2d;
-  --split-bg:     #1e1b2e;  --split-border: #3b3459;
-  --warn-bg:      #241d0d;
-  --danger-bg:    #2a1a19;  --danger-border:#5c3230;  --danger-text: #e2938e;
+  /* 紺の地に置くため、どれも少し青を含ませて浮かせている */
+  --buy-bg:       #16301f;  --buy-border:   #2d5238;
+  --sell-bg:      #33201f;  --sell-border:  #5c3a37;
+  --split-bg:     #252347;  --split-border: #443d73;
+  --warn-bg:      #2d2512;
+  --danger-bg:    #351f1e;  --danger-border:#683936;  --danger-text: #e6a09b;
 
-  --row-hover:    rgba(255, 255, 255, .04);
-  --row-stripe:   rgba(255, 255, 255, .012);
-  --tab-hover:    rgba(255, 255, 255, .03);
-  --overlay:      rgba(6, 8, 12, .72);
-  --topbar-fade:  rgba(15, 18, 24, .92);
-  --shadow:       0 10px 30px rgba(0, 0, 0, .45);
+  --row-hover:    rgba(255, 255, 255, .05);
+  --row-stripe:   rgba(255, 255, 255, .015);
+  --tab-hover:    rgba(255, 255, 255, .04);
+  --overlay:      rgba(4, 9, 22, .74);
+  --topbar-fade:  rgba(13, 23, 48, .92);
+  --shadow:       0 10px 30px rgba(0, 0, 0, .5);
 
   --chart-1:  #c9a24b;
   --chart-2:  #4f9c93;

@@ -1,9 +1,9 @@
 // ダッシュボード: 資産サマリー・分散ルール・構成比・要対応の一覧。
 
-import { api } from '../lib/api.js?v=202609121522';
-import * as charts from '../lib/charts.js?v=202609121522';
-import { delegate, esc, modal, toast } from '../lib/dom.js?v=202609121522';
-import { pct, signClass, yen } from '../lib/format.js?v=202609121522';
+import { api } from '../lib/api.js?v=202609121603';
+import * as charts from '../lib/charts.js?v=202609121603';
+import { delegate, esc, modal, toast } from '../lib/dom.js?v=202609121603';
+import { pct, signClass, yen } from '../lib/format.js?v=202609121603';
 
 function summaryCard(label, value, { cls = '', sub = '' } = {}) {
   return `
@@ -210,6 +210,56 @@ function rulesCard(rules) {
     </div>`;
 }
 
+/**
+ * ナンピン買いの買い時。
+ * 1 回目に買った値段から所定の割合だけ下がった銘柄を知らせる。
+ */
+function averagingCard(plan) {
+  if (!plan) return '';
+  const row = (r, ready) => `
+    <tr class="clickable" data-action="open-stock" data-id="${r.id}">
+      <td style="width:44px" class="muted num">${esc(r.code)}</td>
+      <td><span class="badge ${r.classification.toLowerCase()}">${esc(r.classification)}</span>
+          <span style="margin-left:8px">${esc(r.name)}</span></td>
+      <td class="r"><span class="badge ${ready ? 'buy' : 'warn'}">${r.round} 回目</span></td>
+      <td class="r num">${yen(r.market_price)}</td>
+      <td class="r num muted">目安 ${yen(r.target_price)}</td>
+      <td class="r num ${ready ? 'pos' : ''}">${ready
+    ? `${pct(Math.abs(r.gap_pct), { digits: 1 })} 下`
+    : `あと ${pct(r.gap_pct, { digits: 1 })}`}</td>
+    </tr>`;
+
+  const body = plan.ready.length || plan.near.length
+    ? `<table class="data"><tbody>
+        ${plan.ready.map((r) => row(r, true)).join('')}
+        ${plan.near.map((r) => row(r, false)).join('')}
+      </tbody></table>`
+    : `<p class="muted" style="margin:0">いま買い時の銘柄はありません。
+        ${plan.watching} 銘柄を見ています。</p>`;
+
+  return `
+    <div class="card">
+      <div class="card-head">
+        <h3 class="card-title">ナンピンの買い時</h3>
+        <p class="card-note">
+          1 回目の取得価格から ${plan.second_drop_pct}% 下で 2 回目、${plan.third_drop_pct}% 下で 3 回目
+        </p>
+        <button class="btn btn-sm btn-ghost" data-action="edit-averaging">下落率を変更</button>
+      </div>
+      ${plan.ready.length ? `<p class="rule-verdict">
+        <span class="badge buy">買い時</span> ${plan.ready.length} 銘柄が目安の株価に届いています
+      </p>` : ''}
+      ${body}
+      <p class="hint">
+        基準は<b style="color:var(--text-2)">1 回目に買った値段</b>です(分割があれば調整済み)。
+        平均取得単価ではありません。買い増すたびに基準が下がると、
+        下げ止まらない銘柄を買い続けることになるためです。<br>
+        目安まであと 5% 以内の銘柄も添えています。${plan.completed
+    ? ` 3 回とも買い終えた銘柄が ${plan.completed} 件あります。` : ''}
+      </p>
+    </div>`;
+}
+
 function limitForm({ title, name, label, hint, current, min, onDone }) {
   modal({
     title,
@@ -224,6 +274,38 @@ function limitForm({ title, name, label, hint, current, min, onDone }) {
     onSubmit: async (data) => {
       await api.updateSettings({ [name]: Number(data[name]) });
       toast('分散ルールを更新しました', 'success');
+      onDone?.();
+    },
+  });
+}
+
+function averagingForm(plan, onDone) {
+  modal({
+    title: 'ナンピンの下落率',
+    submitLabel: '保存する',
+    body: `
+      <div class="field-row">
+        <div class="field">
+          <label>2 回目 (%)</label>
+          <input class="input num" type="number" name="second_buy_drop_pct" min="1" max="99"
+                 step="1" value="${plan.second_drop_pct}" required>
+        </div>
+        <div class="field">
+          <label>3 回目 (%)</label>
+          <input class="input num" type="number" name="third_buy_drop_pct" min="1" max="99"
+                 step="1" value="${plan.third_drop_pct}" required>
+        </div>
+      </div>
+      <p class="hint">
+        1 回目に買った値段から何 % 下がったら買い増すか。既定は 20% と 40% です。<br>
+        3 回目は 2 回目より大きい値にしてください。
+      </p>`,
+    onSubmit: async (data) => {
+      await api.updateSettings({
+        second_buy_drop_pct: Number(data.second_buy_drop_pct),
+        third_buy_drop_pct: Number(data.third_buy_drop_pct),
+      });
+      toast('下落率を更新しました', 'success');
       onDone?.();
     },
   });
@@ -293,9 +375,13 @@ export async function render(root, { navigate }) {
     : ''}
     </div>
 
+    ${averagingCard(data.averaging)}
+
     ${rulesCard(data.rules)}`;
 
   delegate(root, 'click', {
+    'open-stock': (target) => navigate(`stock/${target.dataset.id}`),
+    'edit-averaging': () => averagingForm(data.averaging, () => render(root, { navigate })),
     'edit-sector-limit': () => limitForm({
       title: 'セクター集中度の上限',
       name: 'max_sector_pct',

@@ -1,9 +1,9 @@
 // 保有一覧: 並べ替え・絞り込みができる銘柄テーブル。
 
-import { api } from '../lib/api.js?v=202609121522';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609121522';
-import { stockForm } from '../lib/forms.js?v=202609121522';
-import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609121522';
+import { api } from '../lib/api.js?v=202609121603';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609121603';
+import { stockForm } from '../lib/forms.js?v=202609121603';
+import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609121603';
 
 const COLUMNS = [
   { key: 'code', label: 'コード', sort: (a, b) => a.code.localeCompare(b.code) },
@@ -25,7 +25,7 @@ const state = {
   sortKey: 'code',
   sortDir: 1,
   search: '',
-  filter: 'held',   // held | all | k | d
+  filter: 'held',   // held | all | k | d | buy
 };
 
 function value(view, key) {
@@ -42,6 +42,10 @@ function cellHtml(view, key) {
               title="${esc(classification(view.classification).label)}">${esc(view.classification)}</span>
         <strong>${esc(view.name)}</strong>
         ${view.position_count > 1 ? `<span class="badge warn">${view.position_count}ロット</span>` : ''}
+        ${view.averaging?.actionable
+    ? `<span class="badge buy" title="1回目の取得価格から${view.averaging.next.drop_pct}%下">
+         ${view.averaging.next.round}回目 買い時</span>`
+    : ''}
       </div></td>`;
     case 'sector': return `<td class="muted">${esc(view.sector || '—')}</td>`;
     case 'shares': return `<td class="r">${shares(m.shares)}</td>`;
@@ -70,8 +74,10 @@ function filterButtons(views) {
     all: views.length,
     k: views.filter((v) => v.classification === 'K').length,
     d: views.filter((v) => v.classification === 'D').length,
+    buy: views.filter((v) => v.averaging?.actionable).length,
   };
-  return [['held', '保有中'], ['all', 'すべて'], ['k', '景気敏感'], ['d', 'ディフェンシブ']]
+  return [['held', '保有中'], ['all', 'すべて'], ['k', '景気敏感'], ['d', 'ディフェンシブ'],
+    ['buy', '買い時']]
     .map(([key, label]) => `
       <button data-action="filter" data-value="${key}"
               class="${state.filter === key ? 'active' : ''}">
@@ -86,6 +92,7 @@ function apply(views) {
     if (state.filter === 'held' && v.metrics.shares <= 0) return false;
     if (state.filter === 'k' && v.classification !== 'K') return false;
     if (state.filter === 'd' && v.classification !== 'D') return false;
+    if (state.filter === 'buy' && !v.averaging?.actionable) return false;
     if (!term) return true;
     return [v.code, v.name, v.sector, v.timing].some((f) => String(f || '').toLowerCase().includes(term));
   });

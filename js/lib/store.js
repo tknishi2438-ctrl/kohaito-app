@@ -5,11 +5,12 @@
 
 import {
   computePosition, LedgerError, previewSplit, TX_TYPES, SPLIT, MOVE_IN, MOVE_OUT,
-} from './models.js?v=202609121522';
-import { normalizeMonth } from './format.js?v=202609121522';
+} from './models.js?v=202609121603';
+import { normalizeMonth } from './format.js?v=202609121603';
 import {
   DEFAULT_MAX_SECTOR_PCT, DEFAULT_MAX_STOCK_DIVIDEND_PCT, DEFAULT_MIN_DEFENSIVE_PCT,
-} from './rules.js?v=202609121522';
+  DEFAULT_SECOND_BUY_DROP_PCT, DEFAULT_THIRD_BUY_DROP_PCT,
+} from './rules.js?v=202609121603';
 
 export const FORMAT = 'khk-portfolio';
 export const VERSION = 2;
@@ -33,6 +34,8 @@ export function emptyDocument() {
       max_sector_pct: DEFAULT_MAX_SECTOR_PCT,
       max_stock_dividend_pct: DEFAULT_MAX_STOCK_DIVIDEND_PCT,
       min_defensive_pct: DEFAULT_MIN_DEFENSIVE_PCT,
+      second_buy_drop_pct: DEFAULT_SECOND_BUY_DROP_PCT,
+      third_buy_drop_pct: DEFAULT_THIRD_BUY_DROP_PCT,
     },
     stocks: [],
     positions: [],
@@ -116,6 +119,24 @@ export class Store {
         throw new Invalid('ディフェンシブ株の下限は 0〜100% の範囲で指定してください');
       }
       this.doc.settings.min_defensive_pct = v;
+    }
+    // 下落率は 2 つの関係も見るので、すべて確かめてから書き込む
+    const drops = {};
+    for (const key of ['second_buy_drop_pct', 'third_buy_drop_pct']) {
+      if (!(key in patch)) continue;
+      const v = Number(patch[key]);
+      if (!(v > 0 && v < 100)) {
+        throw new Invalid('ナンピンの下落率は 0〜100% の範囲で指定してください');
+      }
+      drops[key] = v;
+    }
+    if (Object.keys(drops).length) {
+      const next = { ...this.doc.settings, ...drops };
+      // 2 回目より浅い 3 回目は、順序が逆になってしまう
+      if (next.third_buy_drop_pct <= next.second_buy_drop_pct) {
+        throw new Invalid('3 回目の下落率は 2 回目より大きく指定してください');
+      }
+      Object.assign(this.doc.settings, drops);
     }
     return this.getSettings();
   }

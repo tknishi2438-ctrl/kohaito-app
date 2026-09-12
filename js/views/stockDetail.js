@@ -1,10 +1,10 @@
 // 銘柄詳細: ロットごとの取引台帳と、IRBANK 由来の配当・営業利益の推移。
 
-import { api } from '../lib/api.js?v=202609121522';
-import * as charts from '../lib/charts.js?v=202609121522';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609121522';
-import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609121522';
-import { classification, date, dateTime, fullDate, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609121522';
+import { api } from '../lib/api.js?v=202609121603';
+import * as charts from '../lib/charts.js?v=202609121603';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609121603';
+import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609121603';
+import { classification, date, dateTime, fullDate, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609121603';
 
 const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
@@ -36,6 +36,62 @@ function txRow(tx) {
       <button class="btn btn-sm btn-danger" data-action="delete-tx" data-id="${tx.id}">削除</button>
     </div></td>
   </tr>`;
+}
+
+const STEP_LABEL = {
+  done: ['済', 'muted'],
+  ready: ['買い時', 'buy'],
+  near: ['もうすぐ', 'warn'],
+  waiting: ['待ち', 'muted'],
+};
+
+/** ナンピン買いの目安。1 回目の値段を基準に、2 回目・3 回目の株価を示す。 */
+function averagingCard(stock) {
+  const plan = stock.averaging;
+  if (!plan) return '';
+  const [, verdictClass] = plan.next && plan.next.reached ? ['', 'buy'] : ['', ''];
+
+  const step = (s) => {
+    const [label, cls] = STEP_LABEL[s.status];
+    return `
+      <tr>
+        <td>${s.round} 回目<span class="muted" style="margin-left:6px;font-size:11px">
+          ${s.drop_pct}% 下</span></td>
+        <td class="r num">${yen(s.target_price)}</td>
+        <td class="r">${s.gap_pct === null ? '<span class="muted">—</span>'
+    : s.done ? '<span class="muted">—</span>'
+      : s.reached ? `<span class="pos">${pct(Math.abs(s.gap_pct), { digits: 1 })} 下</span>`
+        : `<span class="muted">あと ${pct(s.gap_pct, { digits: 1 })}</span>`}</td>
+        <td class="r"><span class="badge ${cls}">${label}</span></td>
+      </tr>`;
+  };
+
+  return `
+    <div class="card">
+      <div class="card-head">
+        <h3 class="card-title">ナンピンの買い時</h3>
+        <p class="card-note">1 回目 ${yen(plan.base_price)}${stock.first_buy?.split_ratio > 1
+    ? `(分割前 ${yen(stock.first_buy.raw_price)})` : ''} が基準 · 買付 ${plan.buy_count} 回</p>
+      </div>
+      ${plan.completed
+    ? '<p class="rule-verdict"><span class="badge">完了</span> 3 回とも買い終えています</p>'
+    : plan.actionable
+      ? `<p class="rule-verdict"><span class="badge buy">買い時</span>
+          ${plan.next.round} 回目の目安 ${yen(plan.next.target_price)} に届いています</p>`
+      : ''}
+      <table class="data">
+        <thead><tr>
+          <th>回</th><th class="r">目安の株価</th><th class="r">現在値との差</th><th class="r">状態</th>
+        </tr></thead>
+        <tbody>${plan.steps.map(step).join('')}</tbody>
+      </table>
+      <p class="hint">
+        現在値 ${plan.market_price ? yen(plan.market_price) : '未取得'}
+        ${plan.change_pct === null ? ''
+    : `・1 回目から <b class="${signClass(plan.change_pct)}">${pct(plan.change_pct, { sign: true, digits: 1 })}</b>`}<br>
+        基準は 1 回目に買った値段です。平均取得単価ではありません。
+      </p>
+    </div>`;
 }
 
 /** 分割の見込みを出すために、そのロットの台帳と名前を渡す。 */
@@ -219,6 +275,8 @@ export async function render(root, { navigate, params }) {
         </dl>
         ${stock.memo ? `<p style="margin:14px 0 0;color:var(--text-2);font-size:13px;white-space:pre-wrap">${esc(stock.memo)}</p>` : ''}
       </div>` : ''}
+
+    ${averagingCard(stock)}
 
     <div class="card">
       <div class="card-head">

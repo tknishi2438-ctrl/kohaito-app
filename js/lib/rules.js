@@ -184,3 +184,66 @@ export function evaluateDefensive(rows, minPct = DEFAULT_MIN_DEFENSIVE_PCT) {
     cyclical_room_amount: toAmount(cyclicalRoom, cyclical),
   };
 }
+
+// ------------------------------------------------------------ ナンピン買い
+
+// 1 回目の取得価格から何 % 下げたら次の買い時とするか(2 回目・3 回目)
+export const DEFAULT_SECOND_BUY_DROP_PCT = 20;
+export const DEFAULT_THIRD_BUY_DROP_PCT = 40;
+
+// 目標株価まであと何 % に迫ったら「もうすぐ」と知らせるか
+const NEAR_PCT = 5;
+
+/**
+ * ナンピン買いの目安を組み立てる。
+ *
+ * 基準は 1 回目に買った値段(分割ぶんは調整済み)。そこから所定の割合だけ
+ * 下がった株価を 2 回目・3 回目の買い時とする。平均取得単価ではなく
+ * 1 回目の値段を使うのは、買い増すたびに基準が下がってしまうと、
+ * いつまでも下げ止まらない銘柄を買い続けることになるため。
+ */
+export function planAveraging(
+  { basePrice, buyCount = 0, marketPrice = null },
+  drops = [DEFAULT_SECOND_BUY_DROP_PCT, DEFAULT_THIRD_BUY_DROP_PCT],
+) {
+  if (!basePrice || basePrice <= 0) return null;
+  const price = marketPrice && marketPrice > 0 ? Number(marketPrice) : null;
+
+  const steps = drops.map((dropPct, index) => {
+    const round_ = index + 2;
+    const target = basePrice * (1 - Number(dropPct) / 100);
+    const done = buyCount >= round_;
+    // 目標株価まであと何 %(負なら既に下回っている)
+    const gap = price !== null && target > 0 ? (price / target - 1) * 100 : null;
+    const reached = price !== null && price <= target;
+    return {
+      round: round_,
+      drop_pct: Number(dropPct),
+      target_price: round(target, 2),
+      done,
+      reached,
+      gap_pct: gap === null ? null : round(gap, 2),
+      status: statusForStep({ done, reached, gap }),
+    };
+  });
+
+  const next = steps.find((s) => !s.done) ?? null;
+  return {
+    base_price: round(basePrice, 4),
+    buy_count: buyCount,
+    market_price: price,
+    // 1 回目の値段からの騰落率
+    change_pct: price !== null ? round((price / basePrice - 1) * 100, 2) : null,
+    steps,
+    next,
+    actionable: Boolean(next && next.reached),   // いま買い時か
+    completed: next === null,                    // 3 回とも買い終えている
+  };
+}
+
+function statusForStep({ done, reached, gap }) {
+  if (done) return 'done';
+  if (reached) return 'ready';
+  if (gap !== null && gap <= NEAR_PCT) return 'near';
+  return 'waiting';
+}

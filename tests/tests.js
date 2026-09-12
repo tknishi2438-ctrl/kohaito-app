@@ -1,17 +1,17 @@
 // 計算ロジックのテスト。Python 版 tests/test_models.py・test_repository.py の移植。
 
-import { describe, it, expect } from './runner.js?v=202609121522';
+import { describe, it, expect } from './runner.js?v=202609121603';
 import {
-  aggregate, computePosition, dividendMonths, evaluate, LedgerError, previewSplit,
-} from '../js/lib/models.js?v=202609121522';
+  aggregate, computePosition, dividendMonths, evaluate, firstBuy, LedgerError, previewSplit,
+} from '../js/lib/models.js?v=202609121603';
 import {
-  evaluateDefensive, evaluateSectors, evaluateStockDividends, headroom,
-} from '../js/lib/rules.js?v=202609121522';
-import { Store } from '../js/lib/store.js?v=202609121522';
-import { fromBase64, toBase64 } from '../js/lib/github.js?v=202609121522';
-import { delegate } from '../js/lib/dom.js?v=202609121522';
-import { date as formatDate, dateTime as formatDateTime, normalizeMonth } from '../js/lib/format.js?v=202609121522';
-import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202609121522';
+  evaluateDefensive, evaluateSectors, evaluateStockDividends, headroom, planAveraging,
+} from '../js/lib/rules.js?v=202609121603';
+import { Store } from '../js/lib/store.js?v=202609121603';
+import { fromBase64, toBase64 } from '../js/lib/github.js?v=202609121603';
+import { delegate } from '../js/lib/dom.js?v=202609121603';
+import { date as formatDate, dateTime as formatDateTime, normalizeMonth } from '../js/lib/format.js?v=202609121603';
+import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202609121603';
 
 const tx = (id, type, date, extra = {}) => ({ id, type, trade_date: date, ...extra });
 
@@ -884,6 +884,171 @@ describe('分割で増えた分を別ロットに切り出す', () => {
     expect(failed).toBe(true);
     expect(store.listPositions(stock.id).length).toBe(1);
     expect(store.listTransactions(position.id).length).toBe(1);
+  });
+});
+
+// --------------------------------------------------------- ナンピン買い
+
+describe('ナンピンの買い時', () => {
+  const plan = (over = {}) => planAveraging({
+    basePrice: 1000, buyCount: 1, marketPrice: null, ...over,
+  }, [20, 40]);
+
+  it('2 回目・3 回目の目安の株価を出す', () => {
+    const p = plan();
+    expect(p.steps.map((s) => s.target_price)).toEqual([800, 600]);
+    expect(p.steps.map((s) => s.round)).toEqual([2, 3]);
+  });
+
+  it('目安に届いていなければ買い時ではない', () => {
+    const p = plan({ marketPrice: 900 });
+    expect(p.actionable).toBe(false);
+    expect(p.steps[0].status).toBe('waiting');
+    expect(p.steps[0].gap_pct).toBe(12.5);   // 900 は 800 より 12.5% 高い
+  });
+
+  it('目安ちょうどでも買い時になる', () => {
+    expect(plan({ marketPrice: 800 }).actionable).toBe(true);
+  });
+
+  it('目安を下回れば買い時', () => {
+    const p = plan({ marketPrice: 750 });
+    expect(p.actionable).toBe(true);
+    expect(p.next.round).toBe(2);
+    expect(p.steps[0].status).toBe('ready');
+  });
+
+  it('あと 5% 以内なら「もうすぐ」', () => {
+    expect(plan({ marketPrice: 830 }).steps[0].status).toBe('near');
+    expect(plan({ marketPrice: 850 }).steps[0].status).toBe('waiting');
+  });
+
+  it('2 回買っていれば次は 3 回目', () => {
+    const p = plan({ buyCount: 2, marketPrice: 700 });
+    expect(p.next.round).toBe(3);
+    expect(p.steps[0].status).toBe('done');
+    // 700 はまだ 3 回目の目安 600 に届いていない
+    expect(p.actionable).toBe(false);
+  });
+
+  it('3 回買い終えていれば完了', () => {
+    const p = plan({ buyCount: 3, marketPrice: 100 });
+    expect(p.completed).toBe(true);
+    expect(p.next).toBe(null);
+    expect(p.actionable).toBe(false);
+  });
+
+  it('1 回目からの騰落率を出す', () => {
+    expect(plan({ marketPrice: 1200 }).change_pct).toBe(20);
+    expect(plan({ marketPrice: 750 }).change_pct).toBe(-25);
+  });
+
+  it('株価が無ければ判定しない', () => {
+    const p = plan();
+    expect(p.actionable).toBe(false);
+    expect(p.change_pct).toBe(null);
+    expect(p.steps[0].gap_pct).toBe(null);
+  });
+
+  it('基準が無ければ計画そのものを作らない', () => {
+    expect(planAveraging({ basePrice: null, buyCount: 0 })).toBe(null);
+    expect(planAveraging({ basePrice: 0, buyCount: 0 })).toBe(null);
+  });
+});
+
+describe('ナンピンの基準になる最初の買付', () => {
+  it('最初の買付の値段を使う(平均ではない)', () => {
+    const b = firstBuy([
+      tx(1, 'BUY', '2025-01', { shares: 10, price: 1000 }),
+      tx(2, 'BUY', '2025-06', { shares: 10, price: 600 }),
+    ]);
+    expect(b.price).toBe(1000);
+    expect(b.date).toBe('2025-01');
+  });
+
+  it('分割があれば、今の株価と比べられるように調整する', () => {
+    // 2,689 円で買ったあと 2 株 → 6 株(3 倍)の分割。今の 1 株ぶんは 896.33 円
+    const b = firstBuy([
+      tx(1, 'BUY', '2026-02', { shares: 2, price: 2689 }),
+      tx(2, 'SPLIT', '2026-09', { split_from: 2, split_to: 6 }),
+    ]);
+    expect(b.price).toBeCloseTo(896.3333, 3);
+    expect(b.raw_price).toBe(2689);
+    expect(b.split_ratio).toBe(3);
+  });
+
+  it('最初の買付より前の分割は関係ない', () => {
+    const b = firstBuy([
+      tx(1, 'SPLIT', '2024-01', { split_from: 1, split_to: 2 }),
+      tx(2, 'BUY', '2025-01', { shares: 10, price: 1000 }),
+    ]);
+    expect(b.price).toBe(1000);
+  });
+
+  it('買付が無ければ基準も無い', () => {
+    expect(firstBuy([])).toBe(null);
+    expect(firstBuy([tx(1, 'SPLIT', '2025-01', { split_from: 1, split_to: 2 })])).toBe(null);
+  });
+});
+
+describe('銘柄ごとのナンピン判定', () => {
+  const setup = (price, marketPrice) => {
+    const store = new Store();
+    const stock = store.createStock({ code: '8058', name: '三菱商事', market_price: marketPrice });
+    const position = store.createPosition({ stock_id: stock.id });
+    store.createTransaction({
+      position_id: position.id, type: 'BUY', trade_date: '2025-01', shares: 10, price,
+    });
+    return { store, stock, position };
+  };
+
+  it('株価が目安まで下がると買い時になる', () => {
+    const { store, stock } = setup(1000, 780);
+    const view = getStockView(store, stock.id);
+    expect(view.averaging.actionable).toBe(true);
+    expect(view.averaging.next.round).toBe(2);
+  });
+
+  it('分割後でも誤って買い時にならない', () => {
+    // 2,689 円 → 3 倍分割で 1 株 896 円相当。株価 841 円は 6% 下げただけ
+    const { store, stock, position } = setup(2689, 841);
+    store.splitPosition(position.id, { trade_date: '2026-09', split_from: 2, split_to: 6 });
+    const view = getStockView(store, stock.id);
+    expect(view.averaging.base_price).toBeCloseTo(896.3333, 3);
+    expect(view.averaging.actionable).toBe(false);
+    expect(view.averaging.change_pct).toBeCloseTo(-6.17, 1);
+  });
+
+  it('買い増すと次の回に進む', () => {
+    const { store, stock, position } = setup(1000, 700);
+    store.createTransaction({
+      position_id: position.id, type: 'BUY', trade_date: '2025-06', shares: 10, price: 780,
+    });
+    const view = getStockView(store, stock.id);
+    expect(view.averaging.buy_count).toBe(2);
+    expect(view.averaging.next.round).toBe(3);
+    // 基準は 1 回目の 1,000 円のまま。平均取得単価(890 円)ではない
+    expect(view.averaging.base_price).toBe(1000);
+  });
+
+  it('下落率の設定を変えると目安も変わる', () => {
+    const { store, stock } = setup(1000, 900);
+    store.updateSettings({ second_buy_drop_pct: 10, third_buy_drop_pct: 25 });
+    const view = getStockView(store, stock.id);
+    expect(view.averaging.steps.map((s) => s.target_price)).toEqual([900, 750]);
+    expect(view.averaging.actionable).toBe(true);
+  });
+
+  it('3 回目を 2 回目より浅くはできない', () => {
+    const { store } = setup(1000, 900);
+    let failed = false;
+    try {
+      store.updateSettings({ second_buy_drop_pct: 40, third_buy_drop_pct: 20 });
+    } catch {
+      failed = true;
+    }
+    expect(failed).toBe(true);
+    expect(store.getSettings().second_buy_drop_pct).toBe(20);
   });
 });
 

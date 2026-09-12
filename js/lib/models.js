@@ -170,6 +170,31 @@ export function computePosition(transactions) {
 }
 
 /**
+ * 最初の買付を、そのあとの分割ぶん調整して返す。
+ *
+ * ナンピンの判断は「1 回目に買った値段」を基準にするが、分割があると
+ * 1 株の値段が変わるため、当時の値段のままでは今の株価と比べられない。
+ * 1 株 → 2 株なら、当時の 2,000 円は今の 1,000 円にあたる。
+ */
+export function firstBuy(transactions) {
+  let price = null;
+  let date = null;
+  let ratio = 1;   // 最初の買付より後に起きた分割の累積比率
+  for (const tx of sortTransactions(transactions)) {
+    const type = String(tx.type || '').toUpperCase();
+    if (type === BUY) {
+      if (price !== null) continue;
+      price = num(tx.price);
+      date = (tx.trade_date || '').trim() || null;
+    } else if (type === SPLIT && price !== null) {
+      ratio *= splitRatio(tx);
+    }
+  }
+  if (price === null || price <= 0) return null;
+  return { price: round(price / ratio, 4), date, raw_price: price, split_ratio: ratio };
+}
+
+/**
  * 分割を記録したらどうなるかを試算する。
  *
  * 保存時とまったく同じ畳み込みを使うので、見込みと結果がずれない。

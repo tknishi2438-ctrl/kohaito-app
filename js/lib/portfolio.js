@@ -1,8 +1,12 @@
 // 銘柄・ポジション・取引を組み立てて、画面が必要とする形に整える層。
 // もとは Python の app/portfolio.py。
 
-import { aggregate, computePosition, dividendMonths, EPSILON, evaluate, sortTransactions } from './models.js?v=202609121522';
-import { evaluateDefensive, evaluateSectors, evaluateStockDividends } from './rules.js?v=202609121522';
+import {
+  aggregate, computePosition, dividendMonths, EPSILON, evaluate, firstBuy, sortTransactions,
+} from './models.js?v=202609121603';
+import {
+  evaluateDefensive, evaluateSectors, evaluateStockDividends, planAveraging,
+} from './rules.js?v=202609121603';
 
 function round(value, digits) {
   const f = 10 ** digits;
@@ -18,12 +22,25 @@ function buildPositionView(position, stock, transactions) {
     sector: stock.sector,
     classification: stock.classification,
     transaction_count: transactions.length,
+    // ナンピンの基準に使う。分割があっても今の株価と比べられる値
+    first_buy: firstBuy(transactions),
     metrics: evaluate(metrics, stock.dividend_per_share || 0, stock.market_price),
   };
 }
 
+/** 銘柄で最初に買った 1 件を選ぶ。日付未設定は台帳と同じく最も古い扱い。 */
+function earliestBuy(positions) {
+  const buys = positions.map((p) => p.first_buy).filter(Boolean);
+  if (!buys.length) return null;
+  return buys.reduce((oldest, b) => {
+    if (!oldest.date) return oldest;
+    if (!b.date) return b;
+    return b.date < oldest.date ? b : oldest;
+  });
+}
+
 /** 銘柄単位の合計。複数ロットは合算した数値も併せて返す。 */
-function buildStockView(stock, positions) {
+function buildStockView(stock, positions, settings = {}) {
   const sum = (key) => positions.reduce((acc, p) => acc + p.metrics[key], 0);
   const shares = sum('shares');
   const cost = sum('cost');
@@ -43,11 +60,17 @@ function buildStockView(stock, positions) {
     last_trade_date: null,
   };
 
+  const base = earliestBuy(positions);
   return {
     ...stock,
     dividend_months: dividendMonths(stock.fiscal_month, Boolean(stock.pays_interim ?? 1)),
     positions,
     position_count: positions.length,
+    first_buy: base,
+    averaging: planAveraging(
+      { basePrice: base?.price ?? null, buyCount: rolled.buy_count, marketPrice: stock.market_price },
+      [settings.second_buy_drop_pct, settings.third_buy_drop_pct].filter((v) => v > 0),
+    ),
     metrics: evaluate(rolled, stock.dividend_per_share || 0, stock.market_price),
   };
 }
@@ -70,7 +93,8 @@ export function listStockViews(store) {
     );
   }
 
-  return store.listStocks().map((s) => buildStockView(s, byStock.get(s.id) || []));
+  const settings = store.getSettings();
+  return store.listStocks().map((s) => buildStockView(s, byStock.get(s.id) || [], settings));
 }
 
 export function getStockView(store, stockId) {
@@ -78,7 +102,7 @@ export function getStockView(store, stockId) {
   const positions = store.listPositions(stock.id).map((p) => (
     buildPositionView(p, stock, store.listTransactions(p.id))
   ));
-  const view = buildStockView(stock, positions);
+  const view = buildStockView(stock, positions, store.getSettings());
   const positionIds = new Set(positions.map((p) => p.id));
 
   view.dividend_history = store.getDividendHistory(stock.id);
@@ -171,9 +195,32 @@ export function dashboard(store) {
   const dividendRule = evaluateStockDividends(views, settings.max_stock_dividend_pct);
   const defensiveRule = evaluateDefensive(byClassification, settings.min_defensive_pct);
 
+  // ナンピンの買い時。近いものも添えて、近い順に並べる
+  const withPlan = held.filter((v) => v.averaging && v.averaging.next && v.market_price);
+  const brief = (v) => ({
+    id: v.id, code: v.code, name: v.name, sector: v.sector, classification: v.classification,
+    market_price: v.market_price,
+    base_price: v.averaging.base_price,
+    change_pct: v.averaging.change_pct,
+    round: v.averaging.next.round,
+    target_price: v.averaging.next.target_price,
+    gap_pct: v.averaging.next.gap_pct,
+    drop_pct: v.averaging.next.drop_pct,
+  });
+  const byGap = (a, b) => a.gap_pct - b.gap_pct;
+
   return {
     summary,
     rules: { sector: sectorRule, stock_dividend: dividendRule, defensive: defensiveRule },
+    averaging: {
+      second_drop_pct: settings.second_buy_drop_pct,
+      third_drop_pct: settings.third_buy_drop_pct,
+      ready: withPlan.filter((v) => v.averaging.actionable).map(brief).sort(byGap),
+      near: withPlan.filter((v) => !v.averaging.actionable && v.averaging.next.status === 'near')
+        .map(brief).sort(byGap),
+      watching: withPlan.length,
+      completed: held.filter((v) => v.averaging?.completed).length,
+    },
     by_sector: bySector,
     by_classification: byClassification,
     needs_attention: {

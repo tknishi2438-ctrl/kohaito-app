@@ -1,9 +1,9 @@
 // 保有一覧: 並べ替え・絞り込みができる銘柄テーブル。
 
-import { api } from '../lib/api.js?v=202609121617';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609121617';
-import { stockForm } from '../lib/forms.js?v=202609121617';
-import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609121617';
+import { api } from '../lib/api.js?v=202609121627';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609121627';
+import { stockForm } from '../lib/forms.js?v=202609121627';
+import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609121627';
 
 const COLUMNS = [
   { key: 'code', label: 'コード', sort: (a, b) => a.code.localeCompare(b.code) },
@@ -14,10 +14,8 @@ const COLUMNS = [
   { key: 'market_price', label: '現在値', num: true },
   { key: 'cost', label: '投資額', num: true },
   { key: 'unrealized_pl', label: '含み損益', num: true },
-  { key: 'dividend_per_share', label: '1株配当', num: true },
   { key: 'annual_dividend', label: '年間配当', num: true },
   { key: 'yield_on_cost', label: '取得利回り', num: true },
-  { key: 'current_yield', label: '現在利回り', num: true },
   { key: 'next_buy_price', label: 'ナンピン', num: true },
 ];
 
@@ -55,13 +53,10 @@ function cellHtml(view, key) {
     case 'market_price': return `<td class="r">${view.market_price ? yen(view.market_price) : '<span class="muted">—</span>'}</td>`;
     case 'cost': return `<td class="r">${yen(m.cost)}</td>`;
     case 'unrealized_pl': return view.market_price
-      ? `<td class="r ${signClass(m.unrealized_pl)}">${yen(m.unrealized_pl, { sign: true })}
-         <span class="muted" style="font-size:11px">${pct(m.unrealized_pl_pct, { digits: 1, sign: true })}</span></td>`
+      ? `<td class="r ${signClass(m.unrealized_pl)}">${yen(m.unrealized_pl, { sign: true })}</td>`
       : '<td class="r muted">—</td>';
-    case 'dividend_per_share': return `<td class="r">${view.dividend_per_share ? yen(view.dividend_per_share) : '—'}</td>`;
     case 'annual_dividend': return `<td class="r gold">${yen(m.annual_dividend)}</td>`;
     case 'yield_on_cost': return `<td class="r teal">${m.yield_on_cost ? pct(m.yield_on_cost) : '—'}</td>`;
-    case 'current_yield': return `<td class="r">${m.current_yield ? pct(m.current_yield) : '<span class="muted">—</span>'}</td>`;
     // 次にナンピンする目安の株価。届いていれば色を付ける
     case 'next_buy_price': {
       const plan = view.averaging;
@@ -134,10 +129,9 @@ function footRow(rows) {
     <td></td><td></td><td></td>
     <td class="r">${yen(total.cost)}</td>
     <td class="r ${signClass(total.unrealized)}">${yen(total.unrealized, { sign: true })}</td>
-    <td></td>
     <td class="r gold">${yen(total.dividend)}</td>
     <td class="r teal">${pct(weighted)}</td>
-    <td></td><td></td><td></td>
+    <td></td><td></td>
   </tr>`;
 }
 

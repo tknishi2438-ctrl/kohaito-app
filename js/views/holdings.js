@@ -1,9 +1,9 @@
 // 保有一覧: 並べ替え・絞り込みができる銘柄テーブル。
 
-import { api } from '../lib/api.js?v=202609121609';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609121609';
-import { stockForm } from '../lib/forms.js?v=202609121609';
-import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609121609';
+import { api } from '../lib/api.js?v=202609121617';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609121617';
+import { stockForm } from '../lib/forms.js?v=202609121617';
+import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609121617';
 
 const COLUMNS = [
   { key: 'code', label: 'コード', sort: (a, b) => a.code.localeCompare(b.code) },
@@ -18,6 +18,7 @@ const COLUMNS = [
   { key: 'annual_dividend', label: '年間配当', num: true },
   { key: 'yield_on_cost', label: '取得利回り', num: true },
   { key: 'current_yield', label: '現在利回り', num: true },
+  { key: 'next_buy_price', label: 'ナンピン', num: true },
 ];
 
 const state = {
@@ -29,6 +30,7 @@ const state = {
 };
 
 function value(view, key) {
+  if (key === 'next_buy_price') return view.averaging?.next?.target_price ?? null;
   if (key in view.metrics) return view.metrics[key];
   return view[key];
 }
@@ -60,6 +62,20 @@ function cellHtml(view, key) {
     case 'annual_dividend': return `<td class="r gold">${yen(m.annual_dividend)}</td>`;
     case 'yield_on_cost': return `<td class="r teal">${m.yield_on_cost ? pct(m.yield_on_cost) : '—'}</td>`;
     case 'current_yield': return `<td class="r">${m.current_yield ? pct(m.current_yield) : '<span class="muted">—</span>'}</td>`;
+    // 次にナンピンする目安の株価。届いていれば色を付ける
+    case 'next_buy_price': {
+      const plan = view.averaging;
+      if (!plan) return '<td class="r muted">—</td>';
+      if (plan.completed) return '<td class="r muted">完了</td>';
+      const next = plan.next;
+      const title = `${next.round}回目 · 1回目 ${yen(plan.base_price)} の ${next.drop_pct}% 下`
+        + `${view.position_count > 1 ? ` · ${plan.position_label}` : ''}`;
+      return `<td class="r" title="${esc(title)}">
+        <span class="${plan.actionable ? 'pos' : ''}">${yen(next.target_price)}</span>
+        <span class="muted" style="font-size:11px">${next.gap_pct === null ? ''
+        : plan.actionable ? ` ${next.round}回目` : ` あと${pct(next.gap_pct, { digits: 0 })}`}</span>
+      </td>`;
+    }
     default: return '<td></td>';
   }
 }
@@ -121,7 +137,7 @@ function footRow(rows) {
     <td></td>
     <td class="r gold">${yen(total.dividend)}</td>
     <td class="r teal">${pct(weighted)}</td>
-    <td></td><td></td>
+    <td></td><td></td><td></td>
   </tr>`;
 }
 

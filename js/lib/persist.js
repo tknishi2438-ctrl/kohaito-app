@@ -3,8 +3,8 @@
 // 接続設定があれば GitHub、無ければブラウザ内(localStorage)に保存する。
 // GitHub を使う場合も、通信できないときのために手元に控えを残す。
 
-import { GitHubStore, RemoteChanged } from './github.js?v=202609121609';
-import { emptyDocument, normalize } from './store.js?v=202609121609';
+import { GitHubStore, RemoteChanged } from './github.js?v=202609121617';
+import { emptyDocument, normalize } from './store.js?v=202609121617';
 
 const CONFIG_KEY = 'khk.github';
 const CACHE_KEY = 'khk.document';

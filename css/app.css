@@ -683,6 +683,28 @@ table.data td.cell-note {
 }
 .seg button.active .seg-count { color: var(--gold-dim); }
 
+/* ------------------------------------- ロットの中に置くナンピンの目安 */
+
+.lot-averaging {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 18px;
+  padding: 9px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface-2);
+  font-size: 12px;
+}
+.lot-averaging-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-3);
+  letter-spacing: .04em;
+}
+.lot-step { display: inline-flex; align-items: baseline; gap: 5px; }
+.lot-step b { font-family: var(--mono); font-size: 13px; color: var(--text-1); }
+.lot-step .badge { align-self: center; }
+
 /* ------------------------------------------------- 分割の実行前プレビュー */
 
 .split-preview {

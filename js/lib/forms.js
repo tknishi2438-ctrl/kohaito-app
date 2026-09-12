@@ -1,8 +1,9 @@
 // 銘柄・ポジション・取引の入力フォーム(モーダル)をまとめたモジュール。
 
-import { api } from './api.js?v=202609121455';
-import { confirmDialog, esc, modal, qs, toast } from './dom.js?v=202609121455';
-import { normalizeMonth, thisMonth, TX_LABEL } from './format.js?v=202609121455';
+import { api } from './api.js?v=202609121522';
+import { confirmDialog, esc, modal, qs, toast } from './dom.js?v=202609121522';
+import { normalizeMonth, shares as fmtShares, thisMonth, TX_LABEL, yen, yenPrecise } from './format.js?v=202609121522';
+import { previewSplit } from './models.js?v=202609121522';
 
 const CLASSIFICATIONS = [
   ['K', 'K — 景気敏感株'],
@@ -112,9 +113,72 @@ export function positionForm(position, stockId, onDone) {
 
 // -------------------------------------------------------------- 取引フォーム
 
-export function transactionForm(tx, positionId, onDone) {
+/** 見込みの下に添える一言。ロットが増えない理由まで言い切る。 */
+function splitFooterNote(plan) {
+  if (plan.creates_lot) {
+    return `増えた ${fmtShares(plan.moved_shares)} 株が新しいロットに入ります。`
+      + `取得原価は ${yen(plan.remaining_cost)} と ${yen(plan.moved_cost)} に分かれます。`;
+  }
+  if (plan.after_shares < plan.before_shares) {
+    return '株数が減る併合なので、ロットは増えません(このロットの中で調整します)。';
+  }
+  // 株数が変わらない = その時点で保有がゼロ。多くは取引月が買付より前
+  return '<b style="color:var(--red)">この内容では何も変わりません。</b>'
+    + '取引月がこのロットの買付より前になっていないか、比率が 1 対 1 になっていないか'
+    + '確かめてください。';
+}
+
+/**
+ * 分割を実行したらどうなるかの一覧。
+ * 保存するのと同じ計算を使うので、ここに出た数字がそのまま結果になる。
+ */
+function splitPreviewHtml(context, { trade_date, split_from, split_to }) {
+  const { transactions = [], positionLabel = '既定のロット', nextLotLabel = '' } = context;
+  let plan;
+  try {
+    plan = previewSplit(transactions, { trade_date, split_from, split_to });
+  } catch {
+    return '<p class="hint" style="margin:0">分割前・分割後の株数を入力してください。</p>';
+  }
+  if (plan.before_shares <= 0) {
+    return '<p class="hint" style="margin:0">この時点の保有がゼロのため、変化はありません。'
+      + '取引月が買付より前になっていないか確かめてください。</p>';
+  }
+
+  const row = (name, before, after, avgBefore, avgAfter, isNewLot = false) => `
+    <tr>
+      <td>${esc(name)}${isNewLot ? '<span class="badge buy" style="margin-left:6px">新規</span>' : ''}</td>
+      <td class="r num">${before === null ? '—' : fmtShares(before)}</td>
+      <td class="r num">→ ${fmtShares(after)} 株</td>
+      <td class="r num muted">${avgBefore === null ? '—' : yenPrecise(avgBefore)}</td>
+      <td class="r num">→ ${yenPrecise(avgAfter)}</td>
+    </tr>`;
+
+  const rows = plan.creates_lot
+    ? row(positionLabel, plan.before_shares, plan.before_shares, plan.avg_price_before, plan.avg_price_after)
+      + row(nextLotLabel || '新しいロット', null, plan.moved_shares, null, plan.avg_price_after, true)
+    : row(positionLabel, plan.before_shares, plan.after_shares, plan.avg_price_before, plan.avg_price_after);
+
+  return `
+    <table class="split-preview-table">
+      <thead><tr>
+        <th>ロット</th><th class="r">株数</th><th class="r"></th>
+        <th class="r">平均取得</th><th class="r"></th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <p class="hint" style="margin:10px 0 0">
+      合計 <b style="color:var(--text-1)">${fmtShares(plan.before_shares)} 株 → ${fmtShares(plan.after_shares)} 株</b>
+      ・投資額 <b style="color:var(--text-1)">${yen(plan.total_cost)}</b> は変わりません。<br>
+      ${splitFooterNote(plan)}
+    </p>`;
+}
+
+export function transactionForm(tx, positionId, onDone, context = null) {
   const isNew = !tx;
-  const type = tx?.type ?? 'BUY';
+  const type = tx?.type ?? context?.defaultType ?? 'BUY';
+  // 新規の分割のときだけ、実行後の姿を出す(編集ではロットの分かれ方は変わらない)
+  const canPreview = isNew && Boolean(context?.transactions);
 
   const tradeFields = `
     <div class="field-row three">
@@ -130,14 +194,23 @@ export function transactionForm(tx, positionId, onDone) {
     </div>
     <p class="hint" style="margin-top:-6px">
       1株が2株になる分割なら「1 → 2」。10株を1株にする併合なら「10 → 1」。<br>
-      株数だけが比率倍され、取得原価は変わりません(平均取得単価が自動で調整されます)。<br>
-      ${isNew ? 'このロットは分割前の株数のまま残り、<b>増えた分は新しいロットになります</b>'
-    + '(証券会社の表示に合わせるため)。併合の場合はロットを作らず、その場で調整します。'
+      ${isNew ? 'このロットは分割前の株数のまま残り、<b>増えた分は新しいロットになります</b>。'
     : '既に記録した分割を編集しても、ロットの分かれ方は変わりません。'}
-    </p>`;
+    </p>
+    ${canPreview ? `
+      <div class="split-preview">
+        <p class="split-preview-title">実行するとこうなります</p>
+        <div data-split-preview></div>
+      </div>` : ''}`;
 
   modal({
-    title: isNew ? '取引を追加' : '取引を編集',
+    title: (() => {
+      if (!isNew) return '取引を編集';
+      // 分割ボタンから開いたときは、何をする画面かを見出しでも示す
+      return context?.defaultType === 'SPLIT'
+        ? `株式分割 — ${context.positionLabel || '既定のロット'}`
+        : '取引を追加';
+    })(),
     submitLabel: isNew ? '追加する' : '保存する',
     body: `
       ${field('取引種別', `<div class="seg" data-type-seg>
@@ -159,6 +232,7 @@ export function transactionForm(tx, positionId, onDone) {
 
       // 隠れている入力欄が required のままだと、ブラウザが送信を止めてしまう。
       // 表示中の側だけを必須にする。
+      const submitBtn = qs('button[type=submit]', form);
       const applyType = (nextType) => {
         const isSplit = nextType === 'SPLIT';
         hidden.value = nextType;
@@ -166,8 +240,22 @@ export function transactionForm(tx, positionId, onDone) {
         splitBox.hidden = !isSplit;
         ['shares', 'price'].forEach((n) => { if (form.elements[n]) form.elements[n].required = !isSplit; });
         ['split_from', 'split_to'].forEach((n) => { if (form.elements[n]) form.elements[n].required = isSplit; });
+        // 何が起きるボタンなのかを明示する
+        if (submitBtn && isNew) submitBtn.textContent = isSplit ? '分割を実行する' : '追加する';
       };
+      // 入力を変えるたびに、実行後の姿を描き直す
+      const previewBox = canPreview ? qs('[data-split-preview]', form) : null;
+      const drawPreview = () => {
+        if (!previewBox) return;
+        previewBox.innerHTML = splitPreviewHtml(context, {
+          trade_date: form.elements.trade_date.value || null,
+          split_from: Number(form.elements.split_from.value),
+          split_to: Number(form.elements.split_to.value),
+        });
+      };
+
       applyType(type);
+      drawPreview();
 
       qs('[data-type-seg]', form).addEventListener('click', (event) => {
         const btn = event.target.closest('button[data-type]');
@@ -175,6 +263,10 @@ export function transactionForm(tx, positionId, onDone) {
         qs('[data-type-seg]', form).querySelectorAll('button')
           .forEach((b) => b.classList.toggle('active', b === btn));
         applyType(btn.dataset.type);
+        drawPreview();
+      });
+      form.addEventListener('input', (event) => {
+        if (['split_from', 'split_to', 'trade_date'].includes(event.target.name)) drawPreview();
       });
     },
 

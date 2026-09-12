@@ -4,12 +4,12 @@
 // persist.js が受け持ち、この層はデータの整合性だけに責任を持つ。
 
 import {
-  computePosition, EPSILON, LedgerError, TX_TYPES, SPLIT, MOVE_IN, MOVE_OUT,
-} from './models.js?v=202609121455';
-import { normalizeMonth } from './format.js?v=202609121455';
+  computePosition, LedgerError, previewSplit, TX_TYPES, SPLIT, MOVE_IN, MOVE_OUT,
+} from './models.js?v=202609121522';
+import { normalizeMonth } from './format.js?v=202609121522';
 import {
   DEFAULT_MAX_SECTOR_PCT, DEFAULT_MAX_STOCK_DIVIDEND_PCT, DEFAULT_MIN_DEFENSIVE_PCT,
-} from './rules.js?v=202609121455';
+} from './rules.js?v=202609121522';
 
 export const FORMAT = 'khk-portfolio';
 export const VERSION = 2;
@@ -352,15 +352,13 @@ export class Store {
       positions: [...this.doc.positions],
     };
     try {
-      const before = computePosition(this.listTransactions(position.id));
+      // 画面に見せた見込みと同じ計算を使う(食い違わないように)
+      const plan = previewSplit(this.listTransactions(position.id), data);
       const split = this.createTransaction({ ...data, type: SPLIT, position_id: position.id });
-      const after = computePosition(this.listTransactions(position.id));
+      if (!plan.creates_lot) return { transaction: split, position: null, moved: 0 };
 
-      const moved = after.shares - before.shares;
-      if (moved <= EPSILON) return { transaction: split, position: null, moved: 0 };
-
-      // 増加分に対応する取得原価。全体では増減しない
-      const amount = after.shares > 0 ? (after.cost * moved) / after.shares : 0;
+      const moved = plan.moved_shares;
+      const amount = plan.moved_cost;
       const siblings = this.listPositions(position.stock_id).length;
       const created = this.createPosition({
         stock_id: position.stock_id,

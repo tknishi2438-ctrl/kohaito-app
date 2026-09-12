@@ -1,17 +1,17 @@
 // 計算ロジックのテスト。Python 版 tests/test_models.py・test_repository.py の移植。
 
-import { describe, it, expect } from './runner.js?v=202609121455';
+import { describe, it, expect } from './runner.js?v=202609121522';
 import {
-  aggregate, computePosition, dividendMonths, evaluate, LedgerError,
-} from '../js/lib/models.js?v=202609121455';
+  aggregate, computePosition, dividendMonths, evaluate, LedgerError, previewSplit,
+} from '../js/lib/models.js?v=202609121522';
 import {
   evaluateDefensive, evaluateSectors, evaluateStockDividends, headroom,
-} from '../js/lib/rules.js?v=202609121455';
-import { Store } from '../js/lib/store.js?v=202609121455';
-import { fromBase64, toBase64 } from '../js/lib/github.js?v=202609121455';
-import { delegate } from '../js/lib/dom.js?v=202609121455';
-import { date as formatDate, dateTime as formatDateTime, normalizeMonth } from '../js/lib/format.js?v=202609121455';
-import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202609121455';
+} from '../js/lib/rules.js?v=202609121522';
+import { Store } from '../js/lib/store.js?v=202609121522';
+import { fromBase64, toBase64 } from '../js/lib/github.js?v=202609121522';
+import { delegate } from '../js/lib/dom.js?v=202609121522';
+import { date as formatDate, dateTime as formatDateTime, normalizeMonth } from '../js/lib/format.js?v=202609121522';
+import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202609121522';
 
 const tx = (id, type, date, extra = {}) => ({ id, type, trade_date: date, ...extra });
 
@@ -816,6 +816,61 @@ describe('分割で増えた分を別ロットに切り出す', () => {
       { trade_date: '2026-09', split_from: 1, split_to: 2 });
     expect(result.position).toBe(null);
     expect(store.listPositions(stock.id).length).toBe(1);
+  });
+
+  it('見込みは実行結果と一致する', () => {
+    // 画面に出した数字と保存後の数字がずれないことが、この機能の肝
+    const { store, position } = setup();
+    const data = { trade_date: '2026-09', split_from: 1, split_to: 2 };
+    const plan = previewSplit(store.listTransactions(position.id), data);
+    const { position: created } = store.splitPosition(position.id, data);
+    expect(plan.creates_lot).toBe(true);
+    expect(plan.moved_shares).toBe(metrics(store, created.id).shares);
+    expect(plan.moved_cost).toBeCloseTo(metrics(store, created.id).cost, 2);
+    expect(plan.remaining_cost).toBeCloseTo(metrics(store, position.id).cost, 2);
+    // 残る側の平均取得単価が見込みどおりであること(丸め方のずれを見張る)
+    expect(plan.avg_price_after).toBeCloseTo(metrics(store, position.id).avg_price, 4);
+    expect(plan.avg_price_after).toBeCloseTo(metrics(store, created.id).avg_price, 4);
+  });
+
+  it('見込みは 2 対 6 のような比率でも一致する', () => {
+    // 実際に記録された例(2 株 → 6 株)
+    const store = new Store();
+    const stock = store.createStock({ code: '4641', name: 'アルプス技研' });
+    const position = store.createPosition({ stock_id: stock.id });
+    store.createTransaction({
+      position_id: position.id, type: 'BUY', trade_date: '2026-02', shares: 2, price: 2689,
+    });
+    const data = { trade_date: '2026-09', split_from: 2, split_to: 6 };
+    const plan = previewSplit(store.listTransactions(position.id), data);
+    const { position: created } = store.splitPosition(position.id, data);
+    expect(plan.before_shares).toBe(2);
+    expect(plan.after_shares).toBe(6);
+    expect(plan.moved_shares).toBe(4);
+    expect(metrics(store, position.id).shares).toBe(2);
+    expect(metrics(store, created.id).shares).toBe(4);
+    expect(plan.moved_cost).toBeCloseTo(metrics(store, created.id).cost, 2);
+    // 割り切れない比率でも、両ロットの平均取得単価は同じに保たれる
+    expect(metrics(store, position.id).avg_price)
+      .toBeCloseTo(metrics(store, created.id).avg_price, 4);
+  });
+
+  it('併合の見込みではロットを作らないと分かる', () => {
+    const { store, position } = setup(100, 500);
+    const plan = previewSplit(store.listTransactions(position.id),
+      { trade_date: '2026-09', split_from: 10, split_to: 1 });
+    expect(plan.creates_lot).toBe(false);
+    expect(plan.after_shares).toBe(10);
+  });
+
+  it('取引月が買付より前なら、増えないと分かる', () => {
+    // 分割が台帳の先頭に来ると、その時点の保有はゼロなので何も動かない
+    const { store, position } = setup();
+    const plan = previewSplit(store.listTransactions(position.id),
+      { trade_date: '2024-01', split_from: 1, split_to: 2 });
+    expect(plan.creates_lot).toBe(false);
+    expect(plan.before_shares).toBe(20);
+    expect(plan.after_shares).toBe(20);
   });
 
   it('比率が不正なら何も作られない', () => {

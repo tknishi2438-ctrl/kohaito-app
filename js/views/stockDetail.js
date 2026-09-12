@@ -1,10 +1,10 @@
 // 銘柄詳細: ロットごとの取引台帳と、IRBANK 由来の配当・営業利益の推移。
 
-import { api } from '../lib/api.js?v=202609121455';
-import * as charts from '../lib/charts.js?v=202609121455';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609121455';
-import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609121455';
-import { classification, date, dateTime, fullDate, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609121455';
+import { api } from '../lib/api.js?v=202609121522';
+import * as charts from '../lib/charts.js?v=202609121522';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609121522';
+import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609121522';
+import { classification, date, dateTime, fullDate, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609121522';
 
 const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
@@ -38,6 +38,17 @@ function txRow(tx) {
   </tr>`;
 }
 
+/** 分割の見込みを出すために、そのロットの台帳と名前を渡す。 */
+function splitContext(stock, positionId) {
+  const position = stock.positions.find((p) => p.id === positionId);
+  return {
+    transactions: (stock.transactions || []).filter((t) => t.position_id === positionId),
+    positionLabel: position?.label || '既定のロット',
+    // 保存時と同じ付け方(ロット数 + 1)
+    nextLotLabel: `ロット${stock.positions.length + 1}(分割)`,
+  };
+}
+
 function positionBlock(position, stock) {
   const m = position.metrics;
   const txs = (stock.transactions || []).filter((t) => t.position_id === position.id);
@@ -54,6 +65,7 @@ function positionBlock(position, stock) {
         </div>
         <div class="row-actions" style="margin-left:auto">
           <button class="btn btn-sm" data-action="add-tx" data-position="${position.id}">+ 取引</button>
+          <button class="btn btn-sm" data-action="split" data-position="${position.id}">分割</button>
           <button class="btn btn-sm btn-ghost" data-action="edit-position" data-id="${position.id}">ロット編集</button>
           <button class="btn btn-sm btn-danger" data-action="delete-position" data-id="${position.id}">削除</button>
         </div>
@@ -242,7 +254,15 @@ export async function render(root, { navigate, params }) {
         reload();
       });
     },
-    'add-tx': (target) => transactionForm(null, Number(target.dataset.position), reload),
+    'add-tx': (target) => {
+      const id = Number(target.dataset.position);
+      transactionForm(null, id, reload, splitContext(stock, id));
+    },
+    // 分割は結果が分かりにくいので、専用のボタンから見込みつきで開く
+    split: (target) => {
+      const id = Number(target.dataset.position);
+      transactionForm(null, id, reload, { ...splitContext(stock, id), defaultType: 'SPLIT' });
+    },
     'edit-tx': (target) => {
       const tx = stock.transactions.find((t) => String(t.id) === target.dataset.id);
       transactionForm(tx, tx.position_id, reload);

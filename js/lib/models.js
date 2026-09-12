@@ -169,6 +169,41 @@ export function computePosition(transactions) {
   };
 }
 
+/**
+ * 分割を記録したらどうなるかを試算する。
+ *
+ * 保存時とまったく同じ畳み込みを使うので、見込みと結果がずれない。
+ * 仮の取引には最大の id を与える。台帳は同じ月なら登録順に並ぶため、
+ * 「これから足す 1 件」として実際の保存時と同じ位置に置くことになる。
+ */
+export function previewSplit(transactions, { trade_date = null, split_from, split_to }) {
+  const hypothetical = {
+    id: Number.MAX_SAFE_INTEGER, type: SPLIT, trade_date, split_from, split_to,
+  };
+  const ratio = splitRatio(hypothetical);
+  const before = computePosition(transactions);
+  const after = computePosition([...transactions, hypothetical]);
+  const moved = after.shares - before.shares;
+  // 取得原価は丸めずに返す。ここで丸めると、残る側の平均取得単価が
+  // ほんの少しずれて、見込みと結果で表示が食い違う
+  const movedCost = after.shares > EPSILON
+    ? Math.max((after.cost * moved) / after.shares, 0)
+    : 0;
+  return {
+    ratio,
+    before_shares: before.shares,
+    after_shares: after.shares,
+    moved_shares: round(Math.max(moved, 0), 6),
+    avg_price_before: before.avg_price,
+    avg_price_after: after.avg_price,
+    total_cost: after.cost,
+    moved_cost: movedCost,
+    remaining_cost: after.cost - movedCost,
+    // 増加分があるときだけ新しいロットを作る(併合や保有ゼロでは作らない)
+    creates_lot: moved > EPSILON,
+  };
+}
+
 /** 保有状況に配当と株価を掛け合わせて評価する。 */
 export function evaluate(metrics, dividendPerShare = 0, marketPrice = null) {
   const dps = num(dividendPerShare);

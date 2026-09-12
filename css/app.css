@@ -683,6 +683,38 @@ table.data td.cell-note {
 }
 .seg button.active .seg-count { color: var(--gold-dim); }
 
+/* ------------------------------------------------- 分割の実行前プレビュー */
+
+.split-preview {
+  margin-top: 14px;
+  padding: 14px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  background: var(--surface-2);
+}
+.split-preview-title {
+  margin: 0 0 10px;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+.split-preview-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+.split-preview-table th {
+  padding: 0 0 6px;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--text-3);
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+.split-preview-table th.r,
+.split-preview-table td.r { text-align: right; }
+.split-preview-table td { padding: 7px 0; border-bottom: 1px solid var(--border); }
+.split-preview-table tr:last-child td { border-bottom: none; }
+.split-preview-table .num { font-family: var(--mono); }
+/* 「→ 」で始まる列は前の列と一続きに見せたいので、間を詰める */
+.split-preview-table td.r + td.r { padding-left: 6px; }
+
 /* -------------------------------------------------------------- トースト */
 
 .toasts {

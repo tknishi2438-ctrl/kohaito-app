@@ -1,10 +1,10 @@
 // 銘柄詳細: ロットごとの取引台帳と、IRBANK 由来の配当・営業利益の推移。
 
-import { api } from '../lib/api.js?v=202609122157';
-import * as charts from '../lib/charts.js?v=202609122157';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609122157';
-import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609122157';
-import { classification, date, dateTime, fullDate, lotName, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609122157';
+import { api } from '../lib/api.js?v=202609122209';
+import * as charts from '../lib/charts.js?v=202609122209';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609122209';
+import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609122209';
+import { classification, date, dateTime, fullDate, lotName, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609122209';
 
 const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
@@ -160,7 +160,9 @@ const METRIC_CHARTS = [
   { key: 'operating_margin', label: '営業利益率', type: 'line', unit: 'pct', color: 1 },
   { key: 'eps', label: 'EPS (1株あたり利益)', type: 'bar', unit: 'yen', color: 2 },
   { key: 'operating_cf', label: '営業キャッシュフロー', type: 'bar', unit: 'money', color: 3 },
-  // 1 株配当金は「1株配当の推移」で出している(分割調整後も併記できるため)
+  // 1 株配当金は「1株配当の推移」が受け持つ(分割調整後も併記できるため)。
+  // 並び順を保つため、ここに居場所だけ置いておく
+  { key: 'dividend_chart' },
   { key: 'payout_ratio', label: '配当性向', type: 'line', unit: 'pct', color: 4 },
   { key: 'equity_ratio', label: '自己資本比率', type: 'line', unit: 'pct', color: 5 },
   { key: 'cash', label: '現金等', type: 'bar', unit: 'money', color: 3 },
@@ -199,10 +201,12 @@ function metricChart(history, spec) {
 
 function metricCharts(stock) {
   const history = stock.profit_history || [];
-  if (!history.length) return '';
-  const cards = METRIC_CHARTS.map((spec) => metricChart(history, spec)).filter(Boolean);
-  if (!cards.length) return '';
-  return cards.join('');
+  return METRIC_CHARTS
+    .map((spec) => (spec.key === 'dividend_chart'
+      ? dividendChart(stock)
+      : metricChart(history, spec)))
+    .filter(Boolean)
+    .join('');
 }
 
 export async function render(root, { navigate, params }) {
@@ -311,7 +315,6 @@ export async function render(root, { navigate, params }) {
     </div>
 
     <div class="grid grid-2" style="margin-top:16px">
-      ${dividendChart(stock)}
       ${metricCharts(stock)}
     </div>`;
 

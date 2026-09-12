@@ -1,14 +1,29 @@
 // 銘柄・ポジション・取引の入力フォーム(モーダル)をまとめたモジュール。
 
-import { api } from './api.js?v=202609121908';
-import { confirmDialog, esc, modal, qs, toast } from './dom.js?v=202609121908';
-import { normalizeMonth, shares as fmtShares, thisMonth, TX_LABEL, yen, yenPrecise } from './format.js?v=202609121908';
-import { previewSplit } from './models.js?v=202609121908';
+import { api } from './api.js?v=202609121918';
+import { confirmDialog, esc, modal, qs, toast } from './dom.js?v=202609121918';
+import { normalizeMonth, shares as fmtShares, thisMonth, TX_LABEL, yen, yenPrecise } from './format.js?v=202609121918';
+import { previewSplit } from './models.js?v=202609121918';
+import { classifyBySector } from './rules.js?v=202609121918';
 
 const CLASSIFICATIONS = [
+  ['AUTO', 'おまかせ — セクターから決める'],
   ['K', 'K — 景気敏感株'],
   ['D', 'D — ディフェンシブ株'],
 ];
+
+/** おまかせを選んだときに、何と判定されるかをその場で見せる。 */
+function autoClassHint(sector) {
+  const { classification, matched, confident } = classifyBySector(sector);
+  const label = classification === 'D' ? 'D — ディフェンシブ株' : 'K — 景気敏感株';
+  if (!String(sector || '').trim()) {
+    return 'セクターを入れると判定できます。空のままだと <b>K</b> になります。';
+  }
+  return confident
+    ? `いまのセクターなら <b>${esc(label)}</b> になります(「${esc(matched)}」で判断)。`
+    : `「${esc(sector)}」は判断がつかないため <b>${esc(label)}</b> にします。`
+      + '違う場合は K / D を直接選んでください。';
+}
 
 function field(label, inner, hint) {
   return `<div class="field"><label>${esc(label)}</label>${inner}
@@ -39,8 +54,12 @@ export function stockForm(stock, onDone) {
     isNew ? '株価と配当は、登録後の自動更新で埋まります。<br>'
       + '買付を記録するまでは<b>購入候補</b>として扱われます。' : '')}
         ${field('分類', `<select class="select" name="classification">
-          ${CLASSIFICATIONS.map(([v, l]) => `<option value="${v}"${stock?.classification === v ? ' selected' : ''}>${l}</option>`).join('')}
-        </select>`, '景気の波を受けやすい業種か、景気に左右されにくい業種か。')}
+          ${CLASSIFICATIONS.map(([v, l]) => {
+    // おまかせで登録した銘柄は、編集を開いてもおまかせのままにする
+    const current = stock?.classification_auto ? 'AUTO' : (stock?.classification ?? 'AUTO');
+    return `<option value="${v}"${current === v ? ' selected' : ''}>${l}</option>`;
+  }).join('')}
+        </select>`, '<span data-class-hint></span>')}
       </div>
       ${field('銘柄名', input('name', stock?.name, 'required placeholder="三菱商事"'))}
       <div class="field-row">
@@ -57,7 +76,19 @@ export function stockForm(stock, onDone) {
       ${field('メモ', `<textarea class="input" name="memo" rows="2">${esc(stock?.memo ?? '')}</textarea>`)}
       <datalist id="sectorList"></datalist>`,
 
-    onMount: () => populateSectors(),
+    onMount: ({ form }) => {
+      populateSectors();
+      // 「おまかせ」のときだけ、どちらになるかをセクターに合わせて出す
+      const hint = qs('[data-class-hint]', form);
+      const drawHint = () => {
+        hint.innerHTML = form.elements.classification.value === 'AUTO'
+          ? autoClassHint(form.elements.sector.value)
+          : '景気の波を受けやすい業種か、景気に左右されにくい業種か。';
+      };
+      drawHint();
+      form.elements.classification.addEventListener('change', drawHint);
+      form.elements.sector.addEventListener('input', drawHint);
+    },
 
     onSubmit: async (data) => {
       const payload = {

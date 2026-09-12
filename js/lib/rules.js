@@ -247,3 +247,61 @@ function statusForStep({ done, reached, gap }) {
   if (gap !== null && gap <= NEAR_PCT) return 'near';
   return 'waiting';
 }
+
+// ------------------------------------------------ セクターからの自動判定
+
+/**
+ * 景気に左右されにくい業種。
+ * 生活に欠かせないもの・料金が規制されているもの・契約が続くものを入れている。
+ */
+const DEFENSIVE_SECTORS = [
+  '食料品', '水産', '農林', '医薬品', '電気', 'ガス', '電力', '陸運', '鉄道',
+  '情報', '通信', 'ソフトウェア', '小売', '保険', '生活', 'ヘルスケア', '介護',
+  // 内容は幅広いが、景気に関わらず続く契約商売が多い
+  'サービス',
+  // 賃料収入が土台で分配も安定しているため、こちら側に置く
+  'REIT', 'リート',
+];
+
+/**
+ * 景気の波を受けやすい業種。
+ * 設備投資・住宅・資源・金利に連動しやすいもの。
+ */
+const CYCLICAL_SECTORS = [
+  '鉄鋼', '非鉄', '金属', '機械', '電気機器', '輸送用機器', '自動車', '化学',
+  '石油', '石炭', 'ゴム', 'ガラス', '土石', '精密', '建設', '建材', '不動産',
+  '銀行', '証券', '金融', '卸売', '商社', '海運', '空運', '運輸', '倉庫',
+  '繊維', 'パルプ', '紙', '鉱業', 'その他製品',
+];
+
+/**
+ * セクター名から景気敏感(K) / ディフェンシブ(D) を推し量る。
+ *
+ * 判断の材料はセクター名しかないため、あくまで下書き。
+ * 判断がつかないときは K を返す。D を多めに見積もると
+ * 「ディフェンシブ株 50% 以上」の判定が甘くなるため、
+ * 間違えるなら厳しい側に倒す。
+ */
+export function classifyBySector(sector) {
+  const text = String(sector || '').trim();
+  if (!text) return { classification: 'K', matched: null, confident: false };
+  // 「電気・ガス」と「電気機器」のように、長い名前を先に見る
+  const hit = (list) => list
+    .filter((word) => text.includes(word))
+    .sort((a, b) => b.length - a.length)[0] ?? null;
+
+  const cyclical = hit(CYCLICAL_SECTORS);
+  const defensive = hit(DEFENSIVE_SECTORS);
+  if (cyclical && defensive) {
+    // 両方に当たったら、長く一致したほうを採る(電気機器 > 電気)
+    const pickCyclical = cyclical.length >= defensive.length;
+    return {
+      classification: pickCyclical ? 'K' : 'D',
+      matched: pickCyclical ? cyclical : defensive,
+      confident: true,
+    };
+  }
+  if (cyclical) return { classification: 'K', matched: cyclical, confident: true };
+  if (defensive) return { classification: 'D', matched: defensive, confident: true };
+  return { classification: 'K', matched: null, confident: false };
+}

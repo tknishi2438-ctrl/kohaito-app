@@ -1,17 +1,18 @@
 // 計算ロジックのテスト。Python 版 tests/test_models.py・test_repository.py の移植。
 
-import { describe, it, expect } from './runner.js?v=202609121908';
+import { describe, it, expect } from './runner.js?v=202609121918';
 import {
   aggregate, computePosition, dividendMonths, evaluate, firstBuy, LedgerError, previewSplit,
-} from '../js/lib/models.js?v=202609121908';
+} from '../js/lib/models.js?v=202609121918';
 import {
-  evaluateDefensive, evaluateSectors, evaluateStockDividends, headroom, planAveraging,
-} from '../js/lib/rules.js?v=202609121908';
-import { Store } from '../js/lib/store.js?v=202609121908';
-import { fromBase64, toBase64 } from '../js/lib/github.js?v=202609121908';
-import { delegate } from '../js/lib/dom.js?v=202609121908';
-import { date as formatDate, dateTime as formatDateTime, normalizeMonth } from '../js/lib/format.js?v=202609121908';
-import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202609121908';
+  classifyBySector, evaluateDefensive, evaluateSectors, evaluateStockDividends,
+  headroom, planAveraging,
+} from '../js/lib/rules.js?v=202609121918';
+import { Store } from '../js/lib/store.js?v=202609121918';
+import { fromBase64, toBase64 } from '../js/lib/github.js?v=202609121918';
+import { delegate } from '../js/lib/dom.js?v=202609121918';
+import { date as formatDate, dateTime as formatDateTime, normalizeMonth } from '../js/lib/format.js?v=202609121918';
+import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202609121918';
 
 const tx = (id, type, date, extra = {}) => ({ id, type, trade_date: date, ...extra });
 
@@ -884,6 +885,69 @@ describe('分割で増えた分を別ロットに切り出す', () => {
     expect(failed).toBe(true);
     expect(store.listPositions(stock.id).length).toBe(1);
     expect(store.listTransactions(position.id).length).toBe(1);
+  });
+});
+
+// ------------------------------------------------ セクターからの自動判定
+
+describe('分類のおまかせ', () => {
+  it('生活に欠かせない業種はディフェンシブ', () => {
+    for (const s of ['食料品', '医薬品', '電気・ガス', '小売', '情報・通信', '保険']) {
+      expect(classifyBySector(s).classification).toBe('D');
+    }
+  });
+
+  it('景気の波を受けやすい業種は景気敏感', () => {
+    for (const s of ['機械', '化学', '銀行', '不動産', '建設', '卸売', '鉄鋼', 'その他製品']) {
+      expect(classifyBySector(s).classification).toBe('K');
+    }
+  });
+
+  it('長く一致したほうを採る(電気機器は K、電気・ガスは D)', () => {
+    expect(classifyBySector('電気機器').classification).toBe('K');
+    expect(classifyBySector('電気・ガス').classification).toBe('D');
+  });
+
+  it('判断がつかないときは K にする', () => {
+    const r = classifyBySector('よく分からない業種');
+    expect(r.classification).toBe('K');
+    expect(r.confident).toBe(false);
+  });
+
+  it('セクターが空でも K を返す', () => {
+    expect(classifyBySector('').classification).toBe('K');
+    expect(classifyBySector(null).classification).toBe('K');
+  });
+
+  it('おまかせで登録するとセクターから決まる', () => {
+    const store = new Store();
+    const stock = store.createStock({ code: '2802', name: '味の素', sector: '食料品', classification: 'AUTO' });
+    expect(stock.classification).toBe('D');
+    expect(stock.classification_auto).toBe(true);
+  });
+
+  it('おまかせのままセクターを直すと判定もやり直す', () => {
+    const store = new Store();
+    const stock = store.createStock({ code: '2802', name: 'テスト', sector: '食料品', classification: 'AUTO' });
+    store.updateStock(stock.id, { sector: '機械' });
+    expect(store.getStock(stock.id).classification).toBe('K');
+  });
+
+  it('自分で選んだ分類は、セクターを直しても変えない', () => {
+    const store = new Store();
+    const stock = store.createStock({ code: '2802', name: 'テスト', sector: '食料品', classification: 'D' });
+    expect(stock.classification_auto).toBe(false);
+    store.updateStock(stock.id, { sector: '機械' });
+    expect(store.getStock(stock.id).classification).toBe('D');
+  });
+
+  it('おまかせから手動に切り替えられる', () => {
+    const store = new Store();
+    const stock = store.createStock({ code: '2802', name: 'テスト', sector: '食料品', classification: 'AUTO' });
+    store.updateStock(stock.id, { classification: 'K' });
+    const after = store.getStock(stock.id);
+    expect(after.classification).toBe('K');
+    expect(after.classification_auto).toBe(false);
   });
 });
 

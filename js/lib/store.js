@@ -5,12 +5,13 @@
 
 import {
   computePosition, LedgerError, previewSplit, TX_TYPES, SPLIT, MOVE_IN, MOVE_OUT,
-} from './models.js?v=202609121908';
-import { lotName, normalizeMonth } from './format.js?v=202609121908';
+} from './models.js?v=202609121918';
+import { lotName, normalizeMonth } from './format.js?v=202609121918';
 import {
+  classifyBySector,
   DEFAULT_MAX_SECTOR_PCT, DEFAULT_MAX_STOCK_DIVIDEND_PCT, DEFAULT_MIN_DEFENSIVE_PCT,
   DEFAULT_SECOND_BUY_DROP_PCT, DEFAULT_THIRD_BUY_DROP_PCT,
-} from './rules.js?v=202609121908';
+} from './rules.js?v=202609121918';
 
 export const FORMAT = 'khk-portfolio';
 export const VERSION = 2;
@@ -62,6 +63,18 @@ export function normalize(raw) {
     dividend_history: raw.dividend_history || [],
     profit_history: raw.profit_history || [],
   };
+}
+
+/**
+ * 分類の決め方。'AUTO' ならセクターから推し量り、その旨を控えておく。
+ * 控えておくのは、あとでセクターを直したときに判定をやり直すため。
+ */
+function resolveClassification(value, sector) {
+  const raw = String(value ?? 'K').toUpperCase();
+  if (raw === 'AUTO') {
+    return { classification: classifyBySector(sector).classification, classification_auto: true };
+  }
+  return { classification: raw === 'D' ? 'D' : 'K', classification_auto: false };
 }
 
 function nextId(rows) {
@@ -169,7 +182,7 @@ export class Store {
       code,
       name,
       sector: String(data.sector || ''),
-      classification: String(data.classification || 'K').toUpperCase(),
+      ...resolveClassification(data.classification, data.sector),
       timing: String(data.timing || ''),
       dividend_per_share: Number(data.dividend_per_share || 0),
       fiscal_month: data.fiscal_month ? Number(data.fiscal_month) : null,
@@ -206,7 +219,10 @@ export class Store {
       if (key in patch) stock[key] = patch[key];
     }
     if ('classification' in patch) {
-      stock.classification = String(patch.classification || 'K').toUpperCase();
+      Object.assign(stock, resolveClassification(patch.classification, stock.sector));
+    } else if (stock.classification_auto && 'sector' in patch) {
+      // おまかせのままセクターを直したら、判定もやり直す
+      Object.assign(stock, resolveClassification('AUTO', stock.sector));
     }
     stock.updated_at = nowIso();
     return stock;

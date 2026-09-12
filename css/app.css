@@ -491,17 +491,32 @@ table.data td.cell-note {
 }
 .rule-limit { font-size: 11px; color: var(--text-3); }
 .rule-head .btn { margin-left: auto; }
-.rule-verdict { margin: 0 0 14px; font-size: 13px; color: var(--text-2); }
-/* 買い時の知らせだけは、開いてすぐ目に入るように大きく */
-.rule-verdict.buy-alert {
-  font-size: 16px;
+.rule-verdict { margin: 0 0 14px; font-size: 15px; color: var(--text-1); }
+/* 判定そのもの(適合・超過・不足・買い時)。拾い読みできるよう大きく囲む */
+.badge.verdict-mark {
+  font-size: 13px;
   font-weight: 700;
-  color: var(--text-1);
+  padding: 4px 11px;
+  border-width: 2px;
+  letter-spacing: .02em;
+  vertical-align: 1px;
 }
-.rule-verdict.buy-alert .badge { font-size: 12px; vertical-align: 2px; margin-right: 4px; }
+/* 判定の中身。下線で、添えの説明と読み分けられるようにする */
+.verdict-text {
+  font-weight: 700;
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: 4px;
+  text-decoration-color: var(--border-strong);
+  margin-left: 4px;
+}
+/* 買い時の知らせだけは、開いてすぐ目に入るようさらに大きく */
+.rule-verdict.buy-alert { font-size: 17px; }
+.rule-verdict.buy-alert .verdict-text { text-decoration-color: var(--green); }
 /* 買い時が無いときは、大きさは揃えつつ穏やかに */
 .rule-verdict.buy-alert.calm { margin: 0; color: var(--text-2); }
-.rule-verdict.buy-alert .muted { font-size: 12px; font-weight: 400; margin-left: 8px; }
+.rule-verdict.buy-alert.calm .verdict-text { text-decoration-color: var(--border-strong); }
+.rule-verdict .muted { font-size: 12px; font-weight: 400; margin-left: 10px; }
 
 /* 構成比 + 上限ラインの横棒 */
 .limit-bars { position: relative; }

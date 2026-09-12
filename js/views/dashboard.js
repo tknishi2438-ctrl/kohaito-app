@@ -1,9 +1,9 @@
 // ダッシュボード: 資産サマリー・分散ルール・構成比・要対応の一覧。
 
-import { api } from '../lib/api.js?v=202609121843';
-import * as charts from '../lib/charts.js?v=202609121843';
-import { delegate, esc, modal, toast } from '../lib/dom.js?v=202609121843';
-import { pct, signClass, yen } from '../lib/format.js?v=202609121843';
+import { api } from '../lib/api.js?v=202609121853';
+import * as charts from '../lib/charts.js?v=202609121853';
+import { delegate, esc, modal, toast } from '../lib/dom.js?v=202609121853';
+import { pct, signClass, yen } from '../lib/format.js?v=202609121853';
 
 function summaryCard(label, value, { cls = '', sub = '' } = {}) {
   return `
@@ -56,8 +56,9 @@ function attentionNotice(attention, summary) {
  */
 function ruleVerdict(rule, unitLabel) {
   return rule.passing
-    ? `<span class="badge buy">適合</span> 最大は ${unitLabel}`
-    : `<span class="badge sell">超過 ${rule.over.length} 件</span> 上限を超えています`;
+    ? `<span class="badge buy verdict-mark">適合</span> <span class="verdict-text">最大は ${unitLabel}</span>`
+    : `<span class="badge sell verdict-mark">超過 ${rule.over.length} 件</span>`
+      + ' <span class="verdict-text">上限を超えています</span>';
 }
 
 function sectorRuleBlock(rule) {
@@ -149,9 +150,11 @@ function defensiveRuleBlock(rule) {
   if (!rule || !rule.total_dividend) return '';
 
   const verdict = rule.passing
-    ? `<span class="badge buy">適合</span> ディフェンシブ株が ${rule.defensive_share_pct.toFixed(1)}%`
-    : `<span class="badge sell">不足</span> ディフェンシブ株が ${rule.defensive_share_pct.toFixed(1)}%`
-      + `（下限まで ${(rule.min_pct - rule.defensive_share_pct).toFixed(1)} ポイント）`;
+    ? `<span class="badge buy verdict-mark">適合</span>`
+      + ` <span class="verdict-text">ディフェンシブ株が ${rule.defensive_share_pct.toFixed(1)}%</span>`
+    : `<span class="badge sell verdict-mark">不足</span>`
+      + ` <span class="verdict-text">ディフェンシブ株が ${rule.defensive_share_pct.toFixed(1)}%`
+      + `（下限まで ${(rule.min_pct - rule.defensive_share_pct).toFixed(1)} ポイント）</span>`;
 
   // 余力欄は幅が狭いので短く。意味は下の説明文で補う
   const amount = rule.passing ? rule.cyclical_room_amount : rule.shortfall_amount;
@@ -236,7 +239,8 @@ function averagingCard(plan) {
         ${plan.ready.map((r) => row(r, true)).join('')}
         ${plan.near.map((r) => row(r, false)).join('')}
       </tbody></table>`
-    : `<p class="rule-verdict buy-alert calm">いま買い時の銘柄はありません
+    : `<p class="rule-verdict buy-alert calm">
+        <span class="verdict-text">いま買い時の銘柄はありません</span>
         <span class="muted">${plan.watching} 銘柄を見ています</span></p>`;
 
   return `
@@ -249,7 +253,8 @@ function averagingCard(plan) {
         <button class="btn btn-sm btn-ghost" data-action="edit-averaging">下落率を変更</button>
       </div>
       ${plan.ready.length ? `<p class="rule-verdict buy-alert">
-        <span class="badge buy">買い時</span> ${plan.ready.length} 銘柄が目安の株価に届いています
+        <span class="badge buy verdict-mark">買い時</span>
+        <span class="verdict-text">${plan.ready.length} 銘柄が目安の株価に届いています</span>
       </p>` : ''}
       ${body}
       <p class="hint">

@@ -710,6 +710,35 @@ table.data td.cell-note {
 /* 打止めにしたロット。目安は残すが、買い時としては見ない */
 .lot-averaging.stopped .lot-step b { color: var(--text-3); font-weight: 400; }
 
+/* ------------------------------------------------------ トグルスイッチ */
+
+.switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }
+.switch input { position: absolute; opacity: 0; width: 0; height: 0; }
+.switch-track {
+  position: relative;
+  width: 34px;
+  height: 19px;
+  border-radius: 999px;
+  background: var(--surface-3);
+  border: 1px solid var(--border-strong);
+  transition: background .15s, border-color .15s;
+}
+.switch-knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--text-3);
+  transition: transform .15s, background .15s;
+}
+.switch-label { font-size: 12px; color: var(--text-2); }
+.switch.on .switch-track { background: var(--gold); border-color: var(--gold); }
+.switch.on .switch-knob { transform: translateX(15px); background: #fff; }
+.switch.on .switch-label { color: var(--text-1); font-weight: 700; }
+.switch input:focus-visible + .switch-track { outline: 2px solid var(--gold); outline-offset: 2px; }
+
 /* ナンピン行に置く打止めの切り替え */
 .lot-stop {
   display: inline-flex;

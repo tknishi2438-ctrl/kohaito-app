@@ -1,9 +1,9 @@
 // 保有一覧: 並べ替え・絞り込みができる銘柄テーブル。
 
-import { api } from '../lib/api.js?v=202609121748';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609121748';
-import { stockForm } from '../lib/forms.js?v=202609121748';
-import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609121748';
+import { api } from '../lib/api.js?v=202609121756';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609121756';
+import { stockForm } from '../lib/forms.js?v=202609121756';
+import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609121756';
 
 const COLUMNS = [
   { key: 'code', label: 'コード', sort: (a, b) => a.code.localeCompare(b.code) },
@@ -13,12 +13,35 @@ const COLUMNS = [
   { key: 'market_price', label: '現在値', num: true },
   { key: 'next_buy_price', label: 'ナンピン', num: true },
   { key: 'shares', label: '株数', num: true },
-  { key: 'avg_price', label: '平均取得', num: true },
-  { key: 'cost', label: '投資額', num: true },
-  { key: 'unrealized_pl', label: '含み損益', num: true },
-  { key: 'annual_dividend', label: '年間配当', num: true },
-  { key: 'yield_on_cost', label: '取得利回り', num: true },
+  // ここから先は「くわしく」を入れたときだけ出す
+  { key: 'avg_price', label: '平均取得', num: true, detail: true },
+  { key: 'cost', label: '投資額', num: true, detail: true },
+  { key: 'unrealized_pl', label: '含み損益', num: true, detail: true },
+  { key: 'annual_dividend', label: '年間配当', num: true, detail: true },
+  { key: 'yield_on_cost', label: '取得利回り', num: true, detail: true },
 ];
+
+const DETAIL_KEY = 'khk.holdings.detail';
+
+function readDetail() {
+  try {
+    return localStorage.getItem(DETAIL_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function writeDetail(on) {
+  try {
+    localStorage.setItem(DETAIL_KEY, on ? '1' : '0');
+  } catch {
+    // 保存できなくても、この画面を開いている間は切り替わる
+  }
+}
+
+function visibleColumns() {
+  return COLUMNS.filter((c) => !c.detail || state.detail);
+}
 
 const state = {
   // 既定は証券コードの若い順。見出しをクリックすれば並べ替えられる
@@ -26,6 +49,7 @@ const state = {
   sortDir: 1,
   search: '',
   filter: 'held',   // held | all | k | d | buy
+  detail: false,    // 株数より後ろの列を出すか
 };
 
 function value(view, key) {
@@ -118,25 +142,32 @@ function apply(views) {
   return rows;
 }
 
-function footRow(rows) {
+/**
+ * 合計行。出ている列から組み立てるので、列を足しても消してもずれない。
+ * 先頭の 3 列(コード・銘柄・セクター)は常に出るため、まとめて 1 つにする。
+ */
+function footRow(rows, columns) {
   const total = rows.reduce((acc, v) => ({
     cost: acc.cost + v.metrics.cost,
     dividend: acc.dividend + v.metrics.annual_dividend,
     unrealized: acc.unrealized + (v.market_price ? v.metrics.unrealized_pl : 0),
   }), { cost: 0, dividend: 0, unrealized: 0 });
   const weighted = total.cost > 0 ? (total.dividend / total.cost) * 100 : 0;
+
+  const cell = {
+    cost: () => `<td class="r">${yen(total.cost)}</td>`,
+    unrealized_pl: () => `<td class="r ${signClass(total.unrealized)}">${yen(total.unrealized, { sign: true })}</td>`,
+    annual_dividend: () => `<td class="r gold">${yen(total.dividend)}</td>`,
+    yield_on_cost: () => `<td class="r teal">${pct(weighted)}</td>`,
+  };
+  const cells = columns.slice(3).map((c) => (cell[c.key] ? cell[c.key]() : '<td></td>')).join('');
   return `<tr style="background:var(--surface-2);font-weight:700">
-    <td colspan="3">合計 ${rows.length} 銘柄</td>
-    <td></td><td></td><td></td><td></td>
-    <td class="r">${yen(total.cost)}</td>
-    <td class="r ${signClass(total.unrealized)}">${yen(total.unrealized, { sign: true })}</td>
-    <td class="r gold">${yen(total.dividend)}</td>
-    <td class="r teal">${pct(weighted)}</td>
-    <td></td>
+    <td colspan="3">合計 ${rows.length} 銘柄</td>${cells}<td></td>
   </tr>`;
 }
 
 export async function render(root, { navigate }) {
+  state.detail = readDetail();
   root.innerHTML = '<div class="loading">読み込み中…</div>';
   let views;
   try {
@@ -148,11 +179,12 @@ export async function render(root, { navigate }) {
 
   const draw = () => {
     const rows = apply(views);
+    const columns = visibleColumns();
     const table = root.querySelector('[data-table]');
     table.innerHTML = rows.length ? `
       <table class="data">
         <thead><tr>
-          ${COLUMNS.map((c) => `<th class="sortable ${c.num ? 'r' : ''}" data-action="sort" data-key="${c.key}">
+          ${columns.map((c) => `<th class="sortable ${c.num ? 'r' : ''}" data-action="sort" data-key="${c.key}">
             ${esc(c.label)}${state.sortKey === c.key ? `<span class="arrow">${state.sortDir > 0 ? '▲' : '▼'}</span>` : ''}
           </th>`).join('')}
           <th class="r">操作</th>
@@ -160,13 +192,13 @@ export async function render(root, { navigate }) {
         <tbody>
           ${rows.map((v) => `<tr class="clickable ${v.metrics.shares <= 0 ? 'zero' : ''}"
               data-action="open" data-id="${v.id}">
-            ${COLUMNS.map((c) => cellHtml(v, c.key)).join('')}
+            ${columns.map((c) => cellHtml(v, c.key)).join('')}
             <td class="r"><div class="row-actions">
               <button class="btn btn-sm btn-ghost" data-action="edit" data-id="${v.id}">編集</button>
             </div></td>
           </tr>`).join('')}
         </tbody>
-        <tfoot>${footRow(rows)}</tfoot>
+        <tfoot>${footRow(rows, columns)}</tfoot>
       </table>` : '<div class="empty-state"><h3>該当する銘柄がありません</h3><p>絞り込み条件を変えてみてください。</p></div>';
   };
 
@@ -178,6 +210,12 @@ export async function render(root, { navigate }) {
         ${filterButtons(views)}
       </div>
       <span class="spacer"></span>
+      <label class="switch${state.detail ? ' on' : ''}"
+             title="平均取得・投資額・含み損益・年間配当・取得利回りを出し入れします">
+        <input type="checkbox" data-action="toggle-detail" ${state.detail ? 'checked' : ''}>
+        <span class="switch-track"><span class="switch-knob"></span></span>
+        <span class="switch-label">くわしく</span>
+      </label>
       <button class="btn btn-primary" data-action="add">+ 銘柄を追加</button>
     </div>
     <div class="table-wrap" data-table></div>`;
@@ -196,6 +234,19 @@ export async function render(root, { navigate }) {
 
   delegate(root, 'click', {
     noop: () => {},
+    // 委譲側で既定の動作を止めているため、チェック状態ではなく今の値を反転させる
+    'toggle-detail': (target) => {
+      state.detail = !state.detail;
+      writeDetail(state.detail);
+      target.checked = state.detail;
+      target.closest('.switch').classList.toggle('on', state.detail);
+      // 並べ替えに使っていた列が消えるなら、コード順に戻す
+      if (!visibleColumns().some((c) => c.key === state.sortKey)) {
+        state.sortKey = 'code';
+        state.sortDir = 1;
+      }
+      draw();
+    },
     open: (target) => navigate(`stock/${target.dataset.id}`),
     edit: async (target) => {
       const stock = views.find((v) => String(v.id) === target.dataset.id);

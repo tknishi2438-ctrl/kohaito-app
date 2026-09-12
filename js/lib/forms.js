@@ -1,16 +1,29 @@
 // 銘柄・ポジション・取引の入力フォーム(モーダル)をまとめたモジュール。
 
-import { api } from './api.js?v=202609121939';
-import { confirmDialog, esc, modal, qs, toast } from './dom.js?v=202609121939';
-import { normalizeMonth, shares as fmtShares, thisMonth, TX_LABEL, yen, yenPrecise } from './format.js?v=202609121939';
-import { previewSplit } from './models.js?v=202609121939';
-import { classifyBySector } from './rules.js?v=202609121939';
+import { api } from './api.js?v=202609122007';
+import { confirmDialog, esc, modal, qs, toast } from './dom.js?v=202609122007';
+import { normalizeMonth, shares as fmtShares, thisMonth, TX_LABEL, yen, yenPrecise } from './format.js?v=202609122007';
+import { previewSplit } from './models.js?v=202609122007';
+import { classifyBySector } from './rules.js?v=202609122007';
 
 const CLASSIFICATIONS = [
   ['AUTO', 'おまかせ — セクターから決める'],
   ['K', 'K — 景気敏感株'],
   ['D', 'D — ディフェンシブ株'],
 ];
+
+// 東証の上場銘柄一覧(sync/build_listing.py が作る)。
+// 214KB ほどあるので、銘柄の入力を始めたときに一度だけ読む。
+let listingPromise = null;
+
+function loadListing() {
+  if (!listingPromise) {
+    listingPromise = fetch('./data/listing.json')
+      .then((res) => (res.ok ? res.json() : {}))
+      .catch(() => ({}));   // 読めなくても手入力はできる
+  }
+  return listingPromise;
+}
 
 /** おまかせを選んだときに、何と判定されるかをその場で見せる。 */
 function autoClassHint(sector) {
@@ -51,8 +64,9 @@ export function stockForm(stock, onDone) {
     body: `
       <div class="field-row">
         ${field('証券コード', input('code', stock?.code, 'required maxlength="5" placeholder="8058"'),
-    isNew ? 'これだけ入れれば登録できます。銘柄名・株価・配当は次の株価更新で埋まります。<br>'
-      + '買付を記録するまでは<b>購入候補</b>として扱われます。' : '')}
+    isNew ? 'コードを入れると銘柄名とセクターが入ります。株価と配当は次の株価更新で埋まります。<br>'
+      + '買付を記録するまでは<b>購入候補</b>として扱われます。'
+      + '<span data-code-hint class="code-hint"></span>' : '')}
         ${field('分類', `<select class="select" name="classification">
           ${CLASSIFICATIONS.map(([v, l]) => {
     // おまかせで登録した銘柄は、編集を開いてもおまかせのままにする
@@ -62,7 +76,7 @@ export function stockForm(stock, onDone) {
         </select>`, '<span data-class-hint></span>')}
       </div>
       ${field('銘柄名', input('name', stock?.name, 'placeholder="三菱商事"'),
-    isNew ? '空のままでも登録できます。次の株価更新で IRBANK の社名が入ります。' : '')}
+    isNew ? '空のままでも登録できます。' : '')}
       <div class="field-row">
         ${field('セクター', input('sector', stock?.sector, 'placeholder="卸売" list="sectorList"'))}
         ${field('おすすめ購入時期', input('timing', stock?.timing, 'placeholder="2025/04"'))}
@@ -89,6 +103,30 @@ export function stockForm(stock, onDone) {
       drawHint();
       form.elements.classification.addEventListener('change', drawHint);
       form.elements.sector.addEventListener('input', drawHint);
+
+      // 証券コードから銘柄名とセクターを引く。
+      // 自分で書き換えた欄は上書きしない(前に自動で入れた値だけ差し替える)
+      const codeHint = qs('[data-code-hint]', form);
+      const filled = { name: '', sector: '' };
+      const autofill = async () => {
+        const code = form.elements.code.value.trim().toUpperCase();
+        const found = code ? (await loadListing())[code] : null;
+        const [name, sector] = found ?? ['', ''];
+        for (const [key, value] of Object.entries({ name, sector })) {
+          const field_ = form.elements[key];
+          // 空欄か、前にここが入れた値のときだけ差し替える。
+          // 見つからないコードに変えたら、前の銘柄の値は消す
+          if (field_.value.trim() !== '' && field_.value !== filled[key]) continue;
+          field_.value = value;
+          filled[key] = value;
+        }
+        if (codeHint) {
+          codeHint.textContent = found ? `上場銘柄一覧から入力しました: ${name}` : '';
+        }
+        drawHint();
+      };
+      form.elements.code.addEventListener('input', autofill);
+      if (isNew) loadListing();   // 入力を待たずに取りに行っておく
     },
 
     onSubmit: async (data) => {

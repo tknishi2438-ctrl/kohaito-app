@@ -738,6 +738,9 @@ table.data td.cell-note {
 /* 打止めにしたロット。目安は残すが、買い時としては見ない */
 .lot-averaging.stopped .lot-step b { color: var(--text-3); font-weight: 400; }
 
+/* コードから自動入力したときの知らせ */
+.code-hint { display: block; margin-top: 4px; color: var(--teal); font-weight: 700; }
+
 /* ------------------------------------------------------ トグルスイッチ */
 
 .switch { display: inline-flex; align-items: center; gap: 8px; cursor: pointer; user-select: none; }

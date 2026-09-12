@@ -1,9 +1,9 @@
 // 保有一覧: 並べ替え・絞り込みができる銘柄テーブル。
 
-import { api } from '../lib/api.js?v=202609121627';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609121627';
-import { stockForm } from '../lib/forms.js?v=202609121627';
-import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609121627';
+import { api } from '../lib/api.js?v=202609121641';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609121641';
+import { stockForm } from '../lib/forms.js?v=202609121641';
+import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609121641';
 
 const COLUMNS = [
   { key: 'code', label: 'コード', sort: (a, b) => a.code.localeCompare(b.code) },
@@ -67,8 +67,7 @@ function cellHtml(view, key) {
         + `${view.position_count > 1 ? ` · ${plan.position_label}` : ''}`;
       return `<td class="r" title="${esc(title)}">
         <span class="${plan.actionable ? 'pos' : ''}">${yen(next.target_price)}</span>
-        <span class="muted" style="font-size:11px">${next.gap_pct === null ? ''
-        : plan.actionable ? ` ${next.round}回目` : ` あと${pct(next.gap_pct, { digits: 0 })}`}</span>
+        <span class="muted" style="font-size:11px"> ${next.round}回目</span>
       </td>`;
     }
     default: return '<td></td>';

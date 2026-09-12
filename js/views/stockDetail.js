@@ -1,10 +1,10 @@
 // 銘柄詳細: ロットごとの取引台帳と、IRBANK 由来の配当・営業利益の推移。
 
-import { api } from '../lib/api.js?v=202609122136';
-import * as charts from '../lib/charts.js?v=202609122136';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609122136';
-import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609122136';
-import { classification, date, dateTime, fullDate, lotName, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609122136';
+import { api } from '../lib/api.js?v=202609122157';
+import * as charts from '../lib/charts.js?v=202609122157';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609122157';
+import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609122157';
+import { classification, date, dateTime, fullDate, lotName, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609122157';
 
 const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
@@ -151,27 +151,58 @@ function dividendChart(stock) {
     </div>`;
 }
 
-function profitChart(stock) {
-  const history = stock.profit_history || [];
-  if (!history.length) return '';
-  const labels = history.map((r) => String(r.fiscal_year).slice(2));
-  const series = [
-    { label: '営業利益', type: 'bar', color: charts.color(1), values: history.map((r) => r.operating_income) },
-  ];
-  // 日本基準の銘柄は経常利益も併記する(IFRS 採用銘柄には存在しない)
-  if (history.some((r) => r.ordinary_income !== null && r.ordinary_income !== undefined)) {
-    series.push({ label: '経常利益', type: 'line', color: charts.color(4), values: history.map((r) => r.ordinary_income) });
-  }
-  series.push({ label: '当期利益', type: 'line', color: charts.color(2), values: history.map((r) => r.net_income) });
+/**
+ * 業績の各指標。IRBANK の業績指標ページから取り込んだ値を 1 指標 1 枚で出す。
+ * 金額は百万円、率は %、EPS と 1 株配当は円。
+ */
+const METRIC_CHARTS = [
+  { key: 'revenue', label: '売上', type: 'bar', unit: 'money', color: 0 },
+  { key: 'operating_margin', label: '営業利益率', type: 'line', unit: 'pct', color: 1 },
+  { key: 'eps', label: 'EPS (1株あたり利益)', type: 'bar', unit: 'yen', color: 2 },
+  { key: 'operating_cf', label: '営業キャッシュフロー', type: 'bar', unit: 'money', color: 3 },
+  // 1 株配当金は「1株配当の推移」で出している(分割調整後も併記できるため)
+  { key: 'payout_ratio', label: '配当性向', type: 'line', unit: 'pct', color: 4 },
+  { key: 'equity_ratio', label: '自己資本比率', type: 'line', unit: 'pct', color: 5 },
+  { key: 'cash', label: '現金等', type: 'bar', unit: 'money', color: 3 },
+];
 
+const METRIC_UNIT = {
+  money: { note: '百万円', format: (v) => charts.compact(v) },
+  pct: { note: '%', format: (v) => `${num(v, 1)}%` },
+  yen: { note: '円', format: (v) => `${num(v, 2)}` },
+};
+
+function metricChart(history, spec) {
+  const rows = history.filter((r) => r[spec.key] !== null && r[spec.key] !== undefined);
+  if (rows.length < 2) return '';
+  const unit = METRIC_UNIT[spec.unit];
+  // 会社予想の年度が混ざっていることを断っておく
+  const hasForecast = rows.some((r) => r.forecast);
   return `
     <div class="card" style="margin-top:0">
       <div class="card-head">
-        <h3 class="card-title">業績の推移</h3>
-        <p class="card-note">IRBANK · 通期実績 (百万円)</p>
+        <h3 class="card-title">${esc(spec.label)}</h3>
+        <p class="card-note">IRBANK · ${unit.note}${hasForecast ? ' · 直近は会社予想' : ''}</p>
       </div>
-      ${charts.timeSeries(labels, series, { unit: (v) => charts.compact(v) })}
+      ${charts.timeSeries(
+    rows.map((r) => String(r.fiscal_year).slice(2)),
+    [{
+      label: spec.label,
+      type: spec.type,
+      color: charts.color(spec.color),
+      values: rows.map((r) => r[spec.key]),
+    }],
+    { unit: unit.format },
+  )}
     </div>`;
+}
+
+function metricCharts(stock) {
+  const history = stock.profit_history || [];
+  if (!history.length) return '';
+  const cards = METRIC_CHARTS.map((spec) => metricChart(history, spec)).filter(Boolean);
+  if (!cards.length) return '';
+  return cards.join('');
 }
 
 export async function render(root, { navigate, params }) {
@@ -281,7 +312,7 @@ export async function render(root, { navigate, params }) {
 
     <div class="grid grid-2" style="margin-top:16px">
       ${dividendChart(stock)}
-      ${profitChart(stock)}
+      ${metricCharts(stock)}
     </div>`;
 
   delegate(root, 'click', {

@@ -1,17 +1,17 @@
 // 計算ロジックのテスト。Python 版 tests/test_models.py・test_repository.py の移植。
 
-import { describe, it, expect } from './runner.js?v=202609052341';
+import { describe, it, expect } from './runner.js?v=202609121455';
 import {
   aggregate, computePosition, dividendMonths, evaluate, LedgerError,
-} from '../js/lib/models.js?v=202609052341';
+} from '../js/lib/models.js?v=202609121455';
 import {
   evaluateDefensive, evaluateSectors, evaluateStockDividends, headroom,
-} from '../js/lib/rules.js?v=202609052341';
-import { Store } from '../js/lib/store.js?v=202609052341';
-import { fromBase64, toBase64 } from '../js/lib/github.js?v=202609052341';
-import { delegate } from '../js/lib/dom.js?v=202609052341';
-import { date as formatDate, normalizeMonth } from '../js/lib/format.js?v=202609052341';
-import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202609052341';
+} from '../js/lib/rules.js?v=202609121455';
+import { Store } from '../js/lib/store.js?v=202609121455';
+import { fromBase64, toBase64 } from '../js/lib/github.js?v=202609121455';
+import { delegate } from '../js/lib/dom.js?v=202609121455';
+import { date as formatDate, dateTime as formatDateTime, normalizeMonth } from '../js/lib/format.js?v=202609121455';
+import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202609121455';
 
 const tx = (id, type, date, extra = {}) => ({ id, type, trade_date: date, ...extra });
 
@@ -575,6 +575,26 @@ describe('保存するドキュメントの形', () => {
 
 
 // ------------------------------------------------------------ 取引月の扱い
+
+describe('日時の表示', () => {
+  it('UTC で保存された時刻は手元の時刻に直して見せる', () => {
+    // 末尾の Z をそのまま切り出すと、日本では 9 時間ずれてしまう
+    const at = new Date('2026-09-12T05:50:00Z');
+    const p = (n) => String(n).padStart(2, '0');
+    const expected = `${at.getFullYear()}/${p(at.getMonth() + 1)}/${p(at.getDate())}`
+      + ` ${p(at.getHours())}:${p(at.getMinutes())}`;
+    expect(formatDateTime('2026-09-12T05:50:00.000Z')).toBe(expected);
+  });
+
+  it('時差の指定が無い時刻は手元の時刻としてそのまま見せる', () => {
+    // Python 側(IRBANK 取得時刻)は手元の時刻をそのまま書いている
+    expect(formatDateTime('2026-09-12T14:50:00')).toBe('2026/09/12 14:50');
+  });
+
+  it('空なら — を返す', () => {
+    expect(formatDateTime(null)).toBe('—');
+  });
+});
 
 describe('取引月(年月)の正規化', () => {
   it('スプレッドシート形式(2025/04)を受け取れる', () => {

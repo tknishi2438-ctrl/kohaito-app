@@ -51,9 +51,28 @@ export function fullDate(value) {
   return String(value).slice(0, 10).replaceAll('-', '/');
 }
 
+// 末尾の Z や +09:00 など、時差の指定が付いているか
+const HAS_TIMEZONE = /(Z|[+-]\d{2}:?\d{2})$/i;
+
+/**
+ * 日時の表示(YYYY/MM/DD HH:MM)。
+ *
+ * 保存されている値は 2 種類ある。ブラウザが書いた同期時刻は UTC(末尾 Z)、
+ * Python が書いた取得時刻は手元の時刻(時差の指定なし)。前者をそのまま
+ * 見せると 9 時間ずれるので、時差の指定があるときは手元の時刻に直す。
+ */
 export function dateTime(value) {
   if (!value) return '—';
-  return String(value).replace('T', ' ').slice(0, 16).replaceAll('-', '/');
+  const text = String(value).trim();
+  if (HAS_TIMEZONE.test(text)) {
+    const at = new Date(text);
+    if (!Number.isNaN(at.getTime())) {
+      const p = (n) => String(n).padStart(2, '0');
+      return `${at.getFullYear()}/${p(at.getMonth() + 1)}/${p(at.getDate())}`
+        + ` ${p(at.getHours())}:${p(at.getMinutes())}`;
+    }
+  }
+  return text.replace('T', ' ').slice(0, 16).replaceAll('-', '/');
 }
 
 export function signClass(value) {

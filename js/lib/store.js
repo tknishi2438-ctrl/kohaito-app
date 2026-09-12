@@ -5,11 +5,11 @@
 
 import {
   computePosition, EPSILON, LedgerError, TX_TYPES, SPLIT, MOVE_IN, MOVE_OUT,
-} from './models.js?v=202609052341';
-import { normalizeMonth } from './format.js?v=202609052341';
+} from './models.js?v=202609121455';
+import { normalizeMonth } from './format.js?v=202609121455';
 import {
   DEFAULT_MAX_SECTOR_PCT, DEFAULT_MAX_STOCK_DIVIDEND_PCT, DEFAULT_MIN_DEFENSIVE_PCT,
-} from './rules.js?v=202609052341';
+} from './rules.js?v=202609121455';
 
 export const FORMAT = 'khk-portfolio';
 export const VERSION = 2;
@@ -65,8 +65,16 @@ function nextId(rows) {
   return rows.reduce((max, r) => Math.max(max, Number(r.id) || 0), 0) + 1;
 }
 
+/**
+ * 記録用の日時(YYYY-MM-DDTHH:MM:SS)。
+ * Python 側(sync/update.py)と揃えて手元の時刻で書く。UTC で書くと
+ * 時差の指定が無いまま 9 時間ずれた値が残ってしまう。
+ */
 function nowIso() {
-  return new Date().toISOString().slice(0, 19);
+  const at = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return `${at.getFullYear()}-${p(at.getMonth() + 1)}-${p(at.getDate())}`
+    + `T${p(at.getHours())}:${p(at.getMinutes())}:${p(at.getSeconds())}`;
 }
 
 export class Store {

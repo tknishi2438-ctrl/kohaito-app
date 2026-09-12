@@ -3,11 +3,11 @@
 
 import {
   aggregate, computePosition, dividendMonths, EPSILON, evaluate, firstBuy, sortTransactions,
-} from './models.js?v=202609121853';
+} from './models.js?v=202609121908';
 import {
   evaluateDefensive, evaluateSectors, evaluateStockDividends, planAveraging,
-} from './rules.js?v=202609121853';
-import { lotName } from './format.js?v=202609121853';
+} from './rules.js?v=202609121908';
+import { lotName } from './format.js?v=202609121908';
 
 function round(value, digits) {
   const f = 10 ** digits;
@@ -73,6 +73,17 @@ function leadingLot(positions) {
   };
 }
 
+/**
+ * 銘柄の状態。
+ * - held      : いま持っている
+ * - candidate : まだ一度も買っていない(購入候補)
+ * - sold      : 買ったが売り切った
+ */
+function stockStatus(rolled) {
+  if (rolled.shares > EPSILON) return 'held';
+  return rolled.buy_count > 0 ? 'sold' : 'candidate';
+}
+
 /** 銘柄単位の合計。複数ロットは合算した数値も併せて返す。 */
 function buildStockView(stock, positions, settings = {}) {
   const sum = (key) => positions.reduce((acc, p) => acc + p.metrics[key], 0);
@@ -99,6 +110,8 @@ function buildStockView(stock, positions, settings = {}) {
     dividend_months: dividendMonths(stock.fiscal_month, Boolean(stock.pays_interim ?? 1)),
     positions,
     position_count: positions.length,
+    // 一度も買っていない銘柄は購入候補。売り切った銘柄とは区別する
+    status: stockStatus(rolled),
     // 銘柄としては、いちばん買い時に近いロットを代表として見せる
     averaging: leadingLot(positions),
     metrics: evaluate(rolled, stock.dividend_per_share || 0, stock.market_price),

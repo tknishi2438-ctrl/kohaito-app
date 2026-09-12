@@ -1,9 +1,9 @@
 // 銘柄・ポジション・取引の入力フォーム(モーダル)をまとめたモジュール。
 
-import { api } from './api.js?v=202609121853';
-import { confirmDialog, esc, modal, qs, toast } from './dom.js?v=202609121853';
-import { normalizeMonth, shares as fmtShares, thisMonth, TX_LABEL, yen, yenPrecise } from './format.js?v=202609121853';
-import { previewSplit } from './models.js?v=202609121853';
+import { api } from './api.js?v=202609121908';
+import { confirmDialog, esc, modal, qs, toast } from './dom.js?v=202609121908';
+import { normalizeMonth, shares as fmtShares, thisMonth, TX_LABEL, yen, yenPrecise } from './format.js?v=202609121908';
+import { previewSplit } from './models.js?v=202609121908';
 
 const CLASSIFICATIONS = [
   ['K', 'K — 景気敏感株'],
@@ -36,7 +36,8 @@ export function stockForm(stock, onDone) {
     body: `
       <div class="field-row">
         ${field('証券コード', input('code', stock?.code, 'required maxlength="5" placeholder="8058"'),
-    isNew ? '株価と配当は、登録後の自動更新で埋まります。' : '')}
+    isNew ? '株価と配当は、登録後の自動更新で埋まります。<br>'
+      + '買付を記録するまでは<b>購入候補</b>として扱われます。' : '')}
         ${field('分類', `<select class="select" name="classification">
           ${CLASSIFICATIONS.map(([v, l]) => `<option value="${v}"${stock?.classification === v ? ' selected' : ''}>${l}</option>`).join('')}
         </select>`, '景気の波を受けやすい業種か、景気に左右されにくい業種か。')}

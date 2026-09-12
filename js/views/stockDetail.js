@@ -1,10 +1,10 @@
 // 銘柄詳細: ロットごとの取引台帳と、IRBANK 由来の配当・営業利益の推移。
 
-import { api } from '../lib/api.js?v=202609121853';
-import * as charts from '../lib/charts.js?v=202609121853';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609121853';
-import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609121853';
-import { classification, date, dateTime, fullDate, lotName, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609121853';
+import { api } from '../lib/api.js?v=202609121908';
+import * as charts from '../lib/charts.js?v=202609121908';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609121908';
+import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609121908';
+import { classification, date, dateTime, fullDate, lotName, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609121908';
 
 const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
@@ -189,7 +189,7 @@ export async function render(root, { navigate, params }) {
   const reload = () => render(root, { navigate, params });
 
   root.innerHTML = `
-    <button class="crumb" data-action="back">← 保有一覧にもどる</button>
+    <button class="crumb" data-action="back">← 銘柄一覧にもどる</button>
     <div class="detail-head">
       <div>
         <h2 class="detail-title">
@@ -197,6 +197,10 @@ export async function render(root, { navigate, params }) {
                 style="vertical-align:middle;margin-right:8px"
                 title="${esc(classification(stock.classification).label)}">${esc(stock.classification)}</span>
           ${esc(stock.name)}
+          ${stock.status === 'candidate'
+    ? '<span class="badge" style="vertical-align:middle;margin-left:8px">購入候補</span>' : ''}
+          ${stock.status === 'sold'
+    ? '<span class="badge" style="vertical-align:middle;margin-left:8px">売却済み</span>' : ''}
         </h2>
         <p class="detail-meta">
           ${esc(stock.code)} · ${esc(classification(stock.classification).label)}
@@ -245,8 +249,12 @@ export async function render(root, { navigate, params }) {
       </div>
       <div class="summary-cell">
         <p class="summary-label">利回り</p>
-        <p class="summary-value teal">${m.yield_on_cost ? pct(m.yield_on_cost) : '—'}</p>
-        <p class="summary-sub">平均取得単価ベース</p>
+        ${stock.status === 'candidate'
+    // まだ買っていない銘柄に取得単価は無い。今の株価で買った場合の利回りを出す
+    ? `<p class="summary-value teal">${m.current_yield ? pct(m.current_yield) : '—'}</p>
+       <p class="summary-sub">現在値で買った場合</p>`
+    : `<p class="summary-value teal">${m.yield_on_cost ? pct(m.yield_on_cost) : '—'}</p>
+       <p class="summary-sub">平均取得単価ベース</p>`}
       </div>
     </div>
 

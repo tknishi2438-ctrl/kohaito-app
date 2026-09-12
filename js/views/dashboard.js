@@ -1,9 +1,9 @@
 // ダッシュボード: 資産サマリー・分散ルール・構成比・要対応の一覧。
 
-import { api } from '../lib/api.js?v=202609121853';
-import * as charts from '../lib/charts.js?v=202609121853';
-import { delegate, esc, modal, toast } from '../lib/dom.js?v=202609121853';
-import { pct, signClass, yen } from '../lib/format.js?v=202609121853';
+import { api } from '../lib/api.js?v=202609121908';
+import * as charts from '../lib/charts.js?v=202609121908';
+import { delegate, esc, modal, toast } from '../lib/dom.js?v=202609121908';
+import { pct, signClass, yen } from '../lib/format.js?v=202609121908';
 
 function summaryCard(label, value, { cls = '', sub = '' } = {}) {
   return `
@@ -340,7 +340,7 @@ export async function render(root, { navigate }) {
             ${esc(status.repo)} に接続していますが、まだ銘柄が登録されていません。
           </p>
           <p class="hint" style="margin:0">
-            「データ」タブから JSON を読み込むか、「保有一覧」から銘柄を追加してください。
+            「データ」タブから JSON を読み込むか、「銘柄一覧」から銘柄を追加してください。
           </p>
         ` : `
           <p style="margin:0 0 12px;font-size:13px;color:var(--text-2)">

@@ -1,9 +1,9 @@
-// 保有一覧: 並べ替え・絞り込みができる銘柄テーブル。
+// 銘柄一覧: 保有中の銘柄と購入候補を、並べ替え・絞り込みしながら見る。
 
-import { api } from '../lib/api.js?v=202609121853';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609121853';
-import { stockForm } from '../lib/forms.js?v=202609121853';
-import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609121853';
+import { api } from '../lib/api.js?v=202609121908';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609121908';
+import { stockForm } from '../lib/forms.js?v=202609121908';
+import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609121908';
 
 const COLUMNS = [
   { key: 'code', label: 'コード', sort: (a, b) => a.code.localeCompare(b.code) },
@@ -48,7 +48,7 @@ const state = {
   sortKey: 'code',
   sortDir: 1,
   search: '',
-  filter: 'held',   // held | all | k | d | buy
+  filter: 'held',   // held | candidate | all | k | d | buy
   detail: false,    // 株数より後ろの列を出すか
 };
 
@@ -66,6 +66,8 @@ function cellHtml(view, key) {
         <span class="badge ${view.classification.toLowerCase()}"
               title="${esc(classification(view.classification).label)}">${esc(view.classification)}</span>
         <strong>${esc(view.name)}</strong>
+        ${view.status === 'candidate' ? '<span class="badge">購入候補</span>' : ''}
+        ${view.status === 'sold' ? '<span class="badge">売却済み</span>' : ''}
         ${view.position_count > 1 ? `<span class="badge warn">${view.position_count}ロット</span>` : ''}
         ${view.averaging?.actionable
     ? `<span class="badge buy" title="1回目の取得価格から${view.averaging.next.drop_pct}%下">
@@ -106,14 +108,15 @@ function cellHtml(view, key) {
  */
 function filterButtons(views) {
   const counts = {
-    held: views.filter((v) => v.metrics.shares > 0).length,
+    held: views.filter((v) => v.status === 'held').length,
+    candidate: views.filter((v) => v.status === 'candidate').length,
     all: views.length,
     k: views.filter((v) => v.classification === 'K').length,
     d: views.filter((v) => v.classification === 'D').length,
     buy: views.filter((v) => v.averaging?.actionable).length,
   };
-  return [['held', '保有中'], ['all', 'すべて'], ['k', '景気敏感'], ['d', 'ディフェンシブ'],
-    ['buy', '買い時']]
+  return [['held', '保有中'], ['candidate', '購入候補'], ['all', 'すべて'],
+    ['k', '景気敏感'], ['d', 'ディフェンシブ'], ['buy', '買い時']]
     .map(([key, label]) => `
       <button data-action="filter" data-value="${key}"
               class="${state.filter === key ? 'active' : ''}">
@@ -125,7 +128,8 @@ function filterButtons(views) {
 function apply(views) {
   const term = state.search.trim().toLowerCase();
   let rows = views.filter((v) => {
-    if (state.filter === 'held' && v.metrics.shares <= 0) return false;
+    if (state.filter === 'held' && v.status !== 'held') return false;
+    if (state.filter === 'candidate' && v.status !== 'candidate') return false;
     if (state.filter === 'k' && v.classification !== 'K') return false;
     if (state.filter === 'd' && v.classification !== 'D') return false;
     if (state.filter === 'buy' && !v.averaging?.actionable) return false;
@@ -182,6 +186,8 @@ export async function render(root, { navigate }) {
   const draw = () => {
     const rows = apply(views);
     const columns = visibleColumns();
+    // 銘柄を足したり売ったりすると件数が変わるので、ボタンも描き直す
+    root.querySelector('[data-seg]').innerHTML = filterButtons(views);
     const table = root.querySelector('[data-table]');
     table.innerHTML = rows.length ? `
       <table class="data">
@@ -208,9 +214,7 @@ export async function render(root, { navigate }) {
     <div class="toolbar">
       <input class="input search" data-action="noop" id="searchBox" placeholder="コード・銘柄名・セクターで検索"
              value="${esc(state.search)}">
-      <div class="seg">
-        ${filterButtons(views)}
-      </div>
+      <div class="seg" data-seg></div>
       <span class="spacer"></span>
       <label class="switch${state.detail ? ' on' : ''}"
              title="セクター・株数・平均取得・投資額・含み損益・年間配当・取得利回りを出し入れします">
@@ -262,7 +266,7 @@ export async function render(root, { navigate }) {
     },
     filter: (target) => {
       state.filter = target.dataset.value;
-      render(root, { navigate });
+      draw();
     },
     add: () => stockForm(null, reload),
   });

@@ -1,9 +1,9 @@
 // 保有一覧: 並べ替え・絞り込みができる銘柄テーブル。
 
-import { api } from '../lib/api.js?v=202609121732';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609121732';
-import { stockForm } from '../lib/forms.js?v=202609121732';
-import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609121732';
+import { api } from '../lib/api.js?v=202609121744';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609121744';
+import { stockForm } from '../lib/forms.js?v=202609121744';
+import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609121744';
 
 const COLUMNS = [
   { key: 'code', label: 'コード', sort: (a, b) => a.code.localeCompare(b.code) },
@@ -12,11 +12,12 @@ const COLUMNS = [
   { key: 'shares', label: '株数', num: true },
   { key: 'avg_price', label: '平均取得', num: true },
   { key: 'market_price', label: '現在値', num: true },
+  // 現在値と見比べるものなので隣に置く
+  { key: 'next_buy_price', label: 'ナンピン', num: true },
   { key: 'cost', label: '投資額', num: true },
   { key: 'unrealized_pl', label: '含み損益', num: true },
   { key: 'annual_dividend', label: '年間配当', num: true },
   { key: 'yield_on_cost', label: '取得利回り', num: true },
-  { key: 'next_buy_price', label: 'ナンピン', num: true },
 ];
 
 const state = {
@@ -126,12 +127,12 @@ function footRow(rows) {
   const weighted = total.cost > 0 ? (total.dividend / total.cost) * 100 : 0;
   return `<tr style="background:var(--surface-2);font-weight:700">
     <td colspan="3">合計 ${rows.length} 銘柄</td>
-    <td></td><td></td><td></td>
+    <td></td><td></td><td></td><td></td>
     <td class="r">${yen(total.cost)}</td>
     <td class="r ${signClass(total.unrealized)}">${yen(total.unrealized, { sign: true })}</td>
     <td class="r gold">${yen(total.dividend)}</td>
     <td class="r teal">${pct(weighted)}</td>
-    <td></td><td></td>
+    <td></td>
   </tr>`;
 }
 

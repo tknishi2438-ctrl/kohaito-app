@@ -1,17 +1,17 @@
 // 計算ロジックのテスト。Python 版 tests/test_models.py・test_repository.py の移植。
 
-import { describe, it, expect } from './runner.js?v=202609121732';
+import { describe, it, expect } from './runner.js?v=202609121744';
 import {
   aggregate, computePosition, dividendMonths, evaluate, firstBuy, LedgerError, previewSplit,
-} from '../js/lib/models.js?v=202609121732';
+} from '../js/lib/models.js?v=202609121744';
 import {
   evaluateDefensive, evaluateSectors, evaluateStockDividends, headroom, planAveraging,
-} from '../js/lib/rules.js?v=202609121732';
-import { Store } from '../js/lib/store.js?v=202609121732';
-import { fromBase64, toBase64 } from '../js/lib/github.js?v=202609121732';
-import { delegate } from '../js/lib/dom.js?v=202609121732';
-import { date as formatDate, dateTime as formatDateTime, normalizeMonth } from '../js/lib/format.js?v=202609121732';
-import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202609121732';
+} from '../js/lib/rules.js?v=202609121744';
+import { Store } from '../js/lib/store.js?v=202609121744';
+import { fromBase64, toBase64 } from '../js/lib/github.js?v=202609121744';
+import { delegate } from '../js/lib/dom.js?v=202609121744';
+import { date as formatDate, dateTime as formatDateTime, normalizeMonth } from '../js/lib/format.js?v=202609121744';
+import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202609121744';
 
 const tx = (id, type, date, extra = {}) => ({ id, type, trade_date: date, ...extra });
 
@@ -1129,6 +1129,35 @@ describe('銘柄ごとのナンピン判定', () => {
     const view = getStockView(store, stock.id);
     expect(view.averaging.position_id).toBe(second.id);
     expect(view.averaging.stopped).toBe(undefined);
+  });
+
+  it('全ロットが打止めのときだけ、銘柄としても打止めになる', () => {
+    const { store, stock, position } = setup(1000, 700);
+    const second = store.createPosition({ stock_id: stock.id, label: 'NISA' });
+    store.createTransaction({
+      position_id: second.id, type: 'BUY', trade_date: '2025-08', shares: 10, price: 800,
+    });
+
+    store.updatePosition(position.id, { averaging_stopped: true });
+    expect(getStockView(store, stock.id).averaging.stopped).toBe(undefined);
+
+    store.updatePosition(second.id, { averaging_stopped: true });
+    expect(getStockView(store, stock.id).averaging.stopped).toBe(true);
+  });
+
+  it('打止めでないロットが買い終えていれば、打止めとは出さない', () => {
+    const { store, stock, position } = setup(1000, 700);
+    store.updatePosition(position.id, { averaging_stopped: true });
+    const second = store.createPosition({ stock_id: stock.id, label: '完了ロット' });
+    for (const [month, price] of [['2025-05', 1000], ['2025-06', 800], ['2025-07', 600]]) {
+      store.createTransaction({
+        position_id: second.id, type: 'BUY', trade_date: month, shares: 10, price,
+      });
+    }
+    const view = getStockView(store, stock.id);
+    expect(view.averaging.completed).toBe(true);
+    expect(view.averaging.stopped).toBe(undefined);
+    expect(view.averaging.position_id).toBe(second.id);
   });
 
   it('下落率の設定を変えると目安も変わる', () => {

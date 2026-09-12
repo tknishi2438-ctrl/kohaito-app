@@ -3,10 +3,10 @@
 
 import {
   aggregate, computePosition, dividendMonths, EPSILON, evaluate, firstBuy, sortTransactions,
-} from './models.js?v=202609121732';
+} from './models.js?v=202609121744';
 import {
   evaluateDefensive, evaluateSectors, evaluateStockDividends, planAveraging,
-} from './rules.js?v=202609121732';
+} from './rules.js?v=202609121744';
 
 function round(value, digits) {
   const f = 10 ** digits;
@@ -45,19 +45,24 @@ function dropsOf(settings) {
 
 /**
  * 銘柄としての代表になるロットを選ぶ。
- * 買い時のものを優先し、その中でも目安に深く届いているものを先に見る。
+ *
+ * まだ買い増す余地のあるロット(打止めでなく、次の回が残っている)を優先し、
+ * その中では買い時のもの、目安に近いものを先に見る。そうしたロットが
+ * 1 つも無いときだけ、打止めや買い終えたロットを代表にする。
+ * つまり「打止め」と出るのは、全ロットが打止めのときに限られる。
  */
 function leadingLot(positions) {
-  const candidates = positions.filter(
-    (p) => p.metrics.shares > EPSILON && p.averaging && p.averaging.next,
-  );
-  if (!candidates.length) return null;
-  const sorted = [...candidates].sort((a, b) => {
-    // 打止めにしたロットは最後に回す(代表になるのは、他に候補が無いときだけ)
-    const stopped = Boolean(a.averaging.stopped) - Boolean(b.averaging.stopped);
+  const held = positions.filter((p) => p.metrics.shares > EPSILON && p.averaging);
+  if (!held.length) return null;
+
+  const open = held.filter((p) => !p.averaging.stopped && p.averaging.next);
+  const pool = open.length ? open : held;
+  const sorted = [...pool].sort((a, b) => {
+    // 打止めは最後に回す(「完了」のほうが伝える情報が多い)
+    const stopped = Number(Boolean(a.averaging.stopped)) - Number(Boolean(b.averaging.stopped));
     if (stopped) return stopped;
     if (a.averaging.actionable !== b.averaging.actionable) return a.averaging.actionable ? -1 : 1;
-    return (a.averaging.next.gap_pct ?? Infinity) - (b.averaging.next.gap_pct ?? Infinity);
+    return (a.averaging.next?.gap_pct ?? Infinity) - (b.averaging.next?.gap_pct ?? Infinity);
   });
   const lot = sorted[0];
   return { ...lot.averaging, position_id: lot.id, position_label: lot.label || '既定のロット' };

@@ -5,12 +5,12 @@
 
 import {
   computePosition, LedgerError, previewSplit, TX_TYPES, SPLIT, MOVE_IN, MOVE_OUT,
-} from './models.js?v=202609121800';
-import { normalizeMonth } from './format.js?v=202609121800';
+} from './models.js?v=202609121809';
+import { lotName, normalizeMonth } from './format.js?v=202609121809';
 import {
   DEFAULT_MAX_SECTOR_PCT, DEFAULT_MAX_STOCK_DIVIDEND_PCT, DEFAULT_MIN_DEFENSIVE_PCT,
   DEFAULT_SECOND_BUY_DROP_PCT, DEFAULT_THIRD_BUY_DROP_PCT,
-} from './rules.js?v=202609121800';
+} from './rules.js?v=202609121809';
 
 export const FORMAT = 'khk-portfolio';
 export const VERSION = 2;
@@ -385,12 +385,13 @@ export class Store {
 
       const moved = plan.moved_shares;
       const amount = plan.moved_cost;
-      const siblings = this.listPositions(position.stock_id).length;
+      const siblings = this.listPositions(position.stock_id);
+      const sourceName = lotName(position, siblings.findIndex((p) => p.id === position.id));
       const created = this.createPosition({
         stock_id: position.stock_id,
-        label: `ロット${siblings + 1}(分割)`,
+        label: `ロット${siblings.length + 1}(分割)`,
         account: position.account,
-        note: `${position.label || '既定のロット'} の分割による増加分`,
+        note: `${sourceName} の分割による増加分`,
         from_split: true,
       });
 
@@ -408,7 +409,7 @@ export class Store {
         type: MOVE_IN,
         position_id: created.id,
         counterpart_position_id: position.id,
-        note: `${position.label || '既定のロット'} の分割による増加分`,
+        note: `${sourceName} の分割による増加分`,
       });
       return { transaction: split, position: created, moved };
     } catch (err) {

@@ -1,9 +1,9 @@
 // 銘柄・ポジション・取引の入力フォーム(モーダル)をまとめたモジュール。
 
-import { api } from './api.js?v=202609121800';
-import { confirmDialog, esc, modal, qs, toast } from './dom.js?v=202609121800';
-import { normalizeMonth, shares as fmtShares, thisMonth, TX_LABEL, yen, yenPrecise } from './format.js?v=202609121800';
-import { previewSplit } from './models.js?v=202609121800';
+import { api } from './api.js?v=202609121809';
+import { confirmDialog, esc, modal, qs, toast } from './dom.js?v=202609121809';
+import { normalizeMonth, shares as fmtShares, thisMonth, TX_LABEL, yen, yenPrecise } from './format.js?v=202609121809';
+import { previewSplit } from './models.js?v=202609121809';
 
 const CLASSIFICATIONS = [
   ['K', 'K — 景気敏感株'],
@@ -134,7 +134,7 @@ function splitFooterNote(plan) {
  * 保存するのと同じ計算を使うので、ここに出た数字がそのまま結果になる。
  */
 function splitPreviewHtml(context, { trade_date, split_from, split_to }) {
-  const { transactions = [], positionLabel = '既定のロット', nextLotLabel = '' } = context;
+  const { transactions = [], positionLabel = 'ロット1', nextLotLabel = '' } = context;
   let plan;
   try {
     plan = previewSplit(transactions, { trade_date, split_from, split_to });
@@ -209,7 +209,7 @@ export function transactionForm(tx, positionId, onDone, context = null) {
       if (!isNew) return '取引を編集';
       // 分割ボタンから開いたときは、何をする画面かを見出しでも示す
       return context?.defaultType === 'SPLIT'
-        ? `株式分割 — ${context.positionLabel || '既定のロット'}`
+        ? `株式分割 — ${context.positionLabel || 'ロット1'}`
         : '取引を追加';
     })(),
     submitLabel: isNew ? '追加する' : '保存する',

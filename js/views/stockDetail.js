@@ -1,10 +1,10 @@
 // 銘柄詳細: ロットごとの取引台帳と、IRBANK 由来の配当・営業利益の推移。
 
-import { api } from '../lib/api.js?v=202609121800';
-import * as charts from '../lib/charts.js?v=202609121800';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609121800';
-import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609121800';
-import { classification, date, dateTime, fullDate, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609121800';
+import { api } from '../lib/api.js?v=202609121809';
+import * as charts from '../lib/charts.js?v=202609121809';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609121809';
+import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609121809';
+import { classification, date, dateTime, fullDate, lotName, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609121809';
 
 const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
@@ -50,7 +50,7 @@ function splitContext(stock, positionId) {
   const position = stock.positions.find((p) => p.id === positionId);
   return {
     transactions: (stock.transactions || []).filter((t) => t.position_id === positionId),
-    positionLabel: position?.label || '既定のロット',
+    positionLabel: lotName(position, stock.positions.findIndex((p) => p.id === positionId)),
     // 保存時と同じ付け方(ロット数 + 1)
     nextLotLabel: `ロット${stock.positions.length + 1}(分割)`,
   };
@@ -94,7 +94,7 @@ function positionBlock(position, stock) {
   return `
     <div class="position-block">
       <div class="position-head">
-        <h4>${esc(position.label || '既定のロット')}</h4>
+        <h4>${esc(lotName(position, stock.positions.findIndex((p) => p.id === position.id)))}</h4>
         ${position.account ? `<span class="badge warn">${esc(position.account)}</span>` : ''}
         <span class="position-price">現在値<b>${stock.market_price ? yen(stock.market_price) : '—'}</b></span>
         <div class="position-stats">
@@ -290,7 +290,7 @@ export async function render(root, { navigate, params }) {
     },
     'delete-position': (target) => {
       const position = stock.positions.find((p) => String(p.id) === target.dataset.id);
-      confirmDelete('ロット', position.label || '既定のロット', async () => {
+      confirmDelete('ロット', lotName(position, stock.positions.indexOf(position)), async () => {
         await api.deletePosition(position.id);
         reload();
       });

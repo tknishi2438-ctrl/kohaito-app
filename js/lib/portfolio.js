@@ -3,10 +3,11 @@
 
 import {
   aggregate, computePosition, dividendMonths, EPSILON, evaluate, firstBuy, sortTransactions,
-} from './models.js?v=202609121800';
+} from './models.js?v=202609121809';
 import {
   evaluateDefensive, evaluateSectors, evaluateStockDividends, planAveraging,
-} from './rules.js?v=202609121800';
+} from './rules.js?v=202609121809';
+import { lotName } from './format.js?v=202609121809';
 
 function round(value, digits) {
   const f = 10 ** digits;
@@ -65,7 +66,11 @@ function leadingLot(positions) {
     return (a.averaging.next?.gap_pct ?? Infinity) - (b.averaging.next?.gap_pct ?? Infinity);
   });
   const lot = sorted[0];
-  return { ...lot.averaging, position_id: lot.id, position_label: lot.label || '既定のロット' };
+  return {
+    ...lot.averaging,
+    position_id: lot.id,
+    position_label: lotName(lot, positions.indexOf(lot)),
+  };
 }
 
 /** 銘柄単位の合計。複数ロットは合算した数値も併せて返す。 */
@@ -143,6 +148,11 @@ export function getStockView(store, stockId) {
 export function listAllTransactions(store) {
   const positionById = new Map(store.doc.positions.map((p) => [p.id, p]));
   const stockById = new Map(store.doc.stocks.map((s) => [s.id, s]));
+  // 名前の無いロットを「ロット1」と呼ぶため、銘柄の中での位置を控えておく
+  const orderInStock = new Map();
+  for (const stock of store.doc.stocks) {
+    store.listPositions(stock.id).forEach((p, i) => orderInStock.set(p.id, i));
+  }
 
   const rows = store.doc.transactions.map((tx) => {
     const position = positionById.get(tx.position_id);
@@ -150,7 +160,7 @@ export function listAllTransactions(store) {
     return {
       ...tx,
       stock_id: stock ? stock.id : null,
-      position_label: position ? position.label : '',
+      position_label: position ? lotName(position, orderInStock.get(position.id) ?? 0) : '',
       code: stock ? stock.code : '',
       name: stock ? stock.name : '',
       sector: stock ? stock.sector : '',

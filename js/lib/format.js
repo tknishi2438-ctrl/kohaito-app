@@ -98,6 +98,14 @@ export function normalizeMonth(value) {
   return `${m[1]}-${m[2].padStart(2, '0')}`;
 }
 
+/**
+ * ロットの表示名。名前を付けていないロットは、並び順から「ロット1」と呼ぶ。
+ * index は同じ銘柄の中での 0 始まりの位置。
+ */
+export function lotName(position, index = 0) {
+  return position?.label || `ロット${index + 1}`;
+}
+
 export const TX_LABEL = {
   BUY: '買付', SELL: '売却', SPLIT: '分割', MOVE_OUT: '払出', MOVE_IN: '受入',
 };

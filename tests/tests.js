@@ -1,17 +1,17 @@
 // 計算ロジックのテスト。Python 版 tests/test_models.py・test_repository.py の移植。
 
-import { describe, it, expect } from './runner.js?v=202609121800';
+import { describe, it, expect } from './runner.js?v=202609121809';
 import {
   aggregate, computePosition, dividendMonths, evaluate, firstBuy, LedgerError, previewSplit,
-} from '../js/lib/models.js?v=202609121800';
+} from '../js/lib/models.js?v=202609121809';
 import {
   evaluateDefensive, evaluateSectors, evaluateStockDividends, headroom, planAveraging,
-} from '../js/lib/rules.js?v=202609121800';
-import { Store } from '../js/lib/store.js?v=202609121800';
-import { fromBase64, toBase64 } from '../js/lib/github.js?v=202609121800';
-import { delegate } from '../js/lib/dom.js?v=202609121800';
-import { date as formatDate, dateTime as formatDateTime, normalizeMonth } from '../js/lib/format.js?v=202609121800';
-import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202609121800';
+} from '../js/lib/rules.js?v=202609121809';
+import { Store } from '../js/lib/store.js?v=202609121809';
+import { fromBase64, toBase64 } from '../js/lib/github.js?v=202609121809';
+import { delegate } from '../js/lib/dom.js?v=202609121809';
+import { date as formatDate, dateTime as formatDateTime, normalizeMonth } from '../js/lib/format.js?v=202609121809';
+import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202609121809';
 
 const tx = (id, type, date, extra = {}) => ({ id, type, trade_date: date, ...extra });
 
@@ -1057,7 +1057,7 @@ describe('銘柄ごとのナンピン判定', () => {
     const view = getStockView(store, stock.id);
     expect(view.averaging.actionable).toBe(true);
     expect(view.averaging.position_id).toBe(position.id);
-    expect(view.averaging.position_label).toBe('既定のロット');
+    expect(view.averaging.position_label).toBe('ロット1');
   });
 
   it('ロットごとに買った回数を数える', () => {

@@ -5,12 +5,12 @@
 
 import {
   computePosition, LedgerError, previewSplit, TX_TYPES, SPLIT, MOVE_IN, MOVE_OUT,
-} from './models.js?v=202609121710';
-import { normalizeMonth } from './format.js?v=202609121710';
+} from './models.js?v=202609121727';
+import { normalizeMonth } from './format.js?v=202609121727';
 import {
   DEFAULT_MAX_SECTOR_PCT, DEFAULT_MAX_STOCK_DIVIDEND_PCT, DEFAULT_MIN_DEFENSIVE_PCT,
   DEFAULT_SECOND_BUY_DROP_PCT, DEFAULT_THIRD_BUY_DROP_PCT,
-} from './rules.js?v=202609121710';
+} from './rules.js?v=202609121727';
 
 export const FORMAT = 'khk-portfolio';
 export const VERSION = 2;
@@ -247,6 +247,8 @@ export class Store {
       note: String(data.note || ''),
       // 分割で自動生成したロットの目印。振替を消したときに後始末できるようにする
       from_split: Boolean(data.from_split),
+      // ナンピン打止め。これ以上買い増さないと決めたロットに手で付ける
+      averaging_stopped: Boolean(data.averaging_stopped),
       created_at: nowIso(),
       updated_at: nowIso(),
     };
@@ -258,6 +260,9 @@ export class Store {
     const position = this.getPosition(id);
     for (const key of ['label', 'account', 'note']) {
       if (key in patch) position[key] = String(patch[key] || '');
+    }
+    if ('averaging_stopped' in patch) {
+      position.averaging_stopped = Boolean(patch.averaging_stopped);
     }
     position.updated_at = nowIso();
     return position;

@@ -1,9 +1,9 @@
 // 保有一覧: 並べ替え・絞り込みができる銘柄テーブル。
 
-import { api } from '../lib/api.js?v=202609121710';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609121710';
-import { stockForm } from '../lib/forms.js?v=202609121710';
-import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609121710';
+import { api } from '../lib/api.js?v=202609121727';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609121727';
+import { stockForm } from '../lib/forms.js?v=202609121727';
+import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609121727';
 
 const COLUMNS = [
   { key: 'code', label: 'コード', sort: (a, b) => a.code.localeCompare(b.code) },
@@ -61,6 +61,7 @@ function cellHtml(view, key) {
     case 'next_buy_price': {
       const plan = view.averaging;
       if (!plan) return '<td class="r muted">—</td>';
+      if (plan.stopped) return '<td class="r muted">打止め</td>';
       if (plan.completed) return '<td class="r muted">完了</td>';
       const next = plan.next;
       const title = `${next.round}回目 · 1回目 ${yen(plan.base_price)} の ${next.drop_pct}% 下`

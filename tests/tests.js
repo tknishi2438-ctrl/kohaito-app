@@ -1,17 +1,17 @@
 // 計算ロジックのテスト。Python 版 tests/test_models.py・test_repository.py の移植。
 
-import { describe, it, expect } from './runner.js?v=202609121710';
+import { describe, it, expect } from './runner.js?v=202609121727';
 import {
   aggregate, computePosition, dividendMonths, evaluate, firstBuy, LedgerError, previewSplit,
-} from '../js/lib/models.js?v=202609121710';
+} from '../js/lib/models.js?v=202609121727';
 import {
   evaluateDefensive, evaluateSectors, evaluateStockDividends, headroom, planAveraging,
-} from '../js/lib/rules.js?v=202609121710';
-import { Store } from '../js/lib/store.js?v=202609121710';
-import { fromBase64, toBase64 } from '../js/lib/github.js?v=202609121710';
-import { delegate } from '../js/lib/dom.js?v=202609121710';
-import { date as formatDate, dateTime as formatDateTime, normalizeMonth } from '../js/lib/format.js?v=202609121710';
-import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202609121710';
+} from '../js/lib/rules.js?v=202609121727';
+import { Store } from '../js/lib/store.js?v=202609121727';
+import { fromBase64, toBase64 } from '../js/lib/github.js?v=202609121727';
+import { delegate } from '../js/lib/dom.js?v=202609121727';
+import { date as formatDate, dateTime as formatDateTime, normalizeMonth } from '../js/lib/format.js?v=202609121727';
+import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202609121727';
 
 const tx = (id, type, date, extra = {}) => ({ id, type, trade_date: date, ...extra });
 
@@ -1089,6 +1089,46 @@ describe('銘柄ごとのナンピン判定', () => {
     // 買付の記録が無いロットでも、1 回目は済んだものとして扱う
     expect(moved.averaging.buy_count).toBe(1);
     expect(moved.averaging.next.round).toBe(2);
+  });
+
+  it('打止めにすると買い時として扱わない', () => {
+    const { store, stock, position } = setup(1000, 700);
+    expect(getStockView(store, stock.id).averaging.actionable).toBe(true);
+    store.updatePosition(position.id, { averaging_stopped: true });
+    const view = getStockView(store, stock.id);
+    const lot = view.positions[0];
+    expect(lot.averaging.stopped).toBe(true);
+    expect(lot.averaging.actionable).toBe(false);
+    // 目安の株価そのものは残す(判断の材料になるため)
+    expect(lot.averaging.steps[0].target_price).toBe(800);
+  });
+
+  it('打止めを解除すればまた買い時になる', () => {
+    const { store, stock, position } = setup(1000, 700);
+    store.updatePosition(position.id, { averaging_stopped: true });
+    store.updatePosition(position.id, { averaging_stopped: false });
+    expect(getStockView(store, stock.id).averaging.actionable).toBe(true);
+  });
+
+  it('打止めのロットはダッシュボードの買い時に出さない', () => {
+    const { store, position } = setup(1000, 700);
+    expect(dashboard(store).averaging.ready.length).toBe(1);
+    store.updatePosition(position.id, { averaging_stopped: true });
+    const after = dashboard(store).averaging;
+    expect(after.ready.length).toBe(0);
+    expect(after.near.length).toBe(0);
+  });
+
+  it('打止めでないロットがあれば、そちらを代表にする', () => {
+    const { store, stock, position } = setup(1000, 700);
+    store.updatePosition(position.id, { averaging_stopped: true });
+    const second = store.createPosition({ stock_id: stock.id, label: 'NISA' });
+    store.createTransaction({
+      position_id: second.id, type: 'BUY', trade_date: '2025-08', shares: 10, price: 800,
+    });
+    const view = getStockView(store, stock.id);
+    expect(view.averaging.position_id).toBe(second.id);
+    expect(view.averaging.stopped).toBe(undefined);
   });
 
   it('下落率の設定を変えると目安も変わる', () => {

@@ -3,10 +3,10 @@
 
 import {
   aggregate, computePosition, dividendMonths, EPSILON, evaluate, firstBuy, sortTransactions,
-} from './models.js?v=202609121710';
+} from './models.js?v=202609121727';
 import {
   evaluateDefensive, evaluateSectors, evaluateStockDividends, planAveraging,
-} from './rules.js?v=202609121710';
+} from './rules.js?v=202609121727';
 
 function round(value, digits) {
   const f = 10 ** digits;
@@ -19,6 +19,10 @@ function buildPositionView(position, stock, transactions, settings = {}) {
   const base = firstBuy(transactions);
   // 振替で始まったロット(分割で切り出した分)は、その受入を 1 回目と数える
   const acquisitions = metrics.buy_count + (base?.from_transfer ? 1 : 0);
+  const plan = planAveraging(
+    { basePrice: base?.price ?? null, buyCount: acquisitions, marketPrice: stock.market_price },
+    dropsOf(settings),
+  );
   return {
     ...position,
     code: stock.code,
@@ -27,10 +31,10 @@ function buildPositionView(position, stock, transactions, settings = {}) {
     classification: stock.classification,
     transaction_count: transactions.length,
     first_buy: base,
-    averaging: planAveraging(
-      { basePrice: base?.price ?? null, buyCount: acquisitions, marketPrice: stock.market_price },
-      dropsOf(settings),
-    ),
+    // 打止めにしたロットは、目安は残したまま買い時としては扱わない
+    averaging: plan && position.averaging_stopped
+      ? { ...plan, stopped: true, actionable: false }
+      : plan,
     metrics: evaluate(metrics, stock.dividend_per_share || 0, stock.market_price),
   };
 }
@@ -49,6 +53,9 @@ function leadingLot(positions) {
   );
   if (!candidates.length) return null;
   const sorted = [...candidates].sort((a, b) => {
+    // 打止めにしたロットは最後に回す(代表になるのは、他に候補が無いときだけ)
+    const stopped = Boolean(a.averaging.stopped) - Boolean(b.averaging.stopped);
+    if (stopped) return stopped;
     if (a.averaging.actionable !== b.averaging.actionable) return a.averaging.actionable ? -1 : 1;
     return (a.averaging.next.gap_pct ?? Infinity) - (b.averaging.next.gap_pct ?? Infinity);
   });
@@ -210,7 +217,9 @@ export function dashboard(store) {
   const defensiveRule = evaluateDefensive(byClassification, settings.min_defensive_pct);
 
   // ナンピンの買い時。近いものも添えて、近い順に並べる
-  const withPlan = held.filter((v) => v.averaging && v.averaging.next && v.market_price);
+  const withPlan = held.filter(
+    (v) => v.averaging && v.averaging.next && v.market_price && !v.averaging.stopped,
+  );
   const brief = (v) => ({
     id: v.id, code: v.code, name: v.name, sector: v.sector, classification: v.classification,
     market_price: v.market_price,

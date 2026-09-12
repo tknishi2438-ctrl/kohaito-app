@@ -707,6 +707,12 @@ table.data td.cell-note {
 .lot-step { display: inline-flex; align-items: baseline; gap: 5px; }
 .lot-step b { font-family: var(--mono); font-size: 13px; color: var(--text-1); }
 .lot-step .badge { align-self: center; }
+/* 打止めにしたロット。目安は残すが、買い時としては見ない */
+.lot-averaging.stopped .lot-step b { color: var(--text-3); font-weight: 400; }
+
+/* 打止めなどの切り替え */
+.check { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--text-1); cursor: pointer; }
+.check input { width: 15px; height: 15px; accent-color: var(--gold); cursor: pointer; }
 
 /* ------------------------------------------------- 分割の実行前プレビュー */
 

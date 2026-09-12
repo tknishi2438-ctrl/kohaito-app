@@ -1,9 +1,9 @@
 // 銘柄・ポジション・取引の入力フォーム(モーダル)をまとめたモジュール。
 
-import { api } from './api.js?v=202609121710';
-import { confirmDialog, esc, modal, qs, toast } from './dom.js?v=202609121710';
-import { normalizeMonth, shares as fmtShares, thisMonth, TX_LABEL, yen, yenPrecise } from './format.js?v=202609121710';
-import { previewSplit } from './models.js?v=202609121710';
+import { api } from './api.js?v=202609121727';
+import { confirmDialog, esc, modal, qs, toast } from './dom.js?v=202609121727';
+import { normalizeMonth, shares as fmtShares, thisMonth, TX_LABEL, yen, yenPrecise } from './format.js?v=202609121727';
+import { previewSplit } from './models.js?v=202609121727';
 
 const CLASSIFICATIONS = [
   ['K', 'K — 景気敏感株'],
@@ -100,9 +100,20 @@ export function positionForm(position, stockId, onDone) {
       ${field('ロット名', input('label', position?.label, 'placeholder="ロット2 / NISA枠 など"'),
     '同じ銘柄を別枠で持っているときの見分け用です。空でも構いません。')}
       ${field('口座区分', input('account', position?.account, 'placeholder="特定口座 / NISA成長投資枠"'))}
+      ${field('ナンピン', `<label class="check">
+        <input type="checkbox" name="averaging_stopped" ${position?.averaging_stopped ? 'checked' : ''}>
+        <span>打止めにする(これ以上は買い増さない)</span>
+      </label>`,
+    '目安の株価は今までどおり出ますが、買い時としては知らせません。<br>'
+    + '下げ止まらない銘柄を、決めたルールのまま買い続けないための印です。')}
       ${field('メモ', input('note', position?.note))}`,
     onSubmit: async (data) => {
-      const payload = { label: data.label.trim(), account: data.account.trim(), note: data.note.trim() };
+      const payload = {
+        label: data.label.trim(),
+        account: data.account.trim(),
+        note: data.note.trim(),
+        averaging_stopped: Boolean(data.averaging_stopped),
+      };
       if (isNew) await api.createPosition({ ...payload, stock_id: stockId });
       else await api.updatePosition(position.id, payload);
       toast(isNew ? 'ロットを追加しました' : '保存しました', 'success');

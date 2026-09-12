@@ -1,10 +1,10 @@
 // 銘柄詳細: ロットごとの取引台帳と、IRBANK 由来の配当・営業利益の推移。
 
-import { api } from '../lib/api.js?v=202609121710';
-import * as charts from '../lib/charts.js?v=202609121710';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609121710';
-import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609121710';
-import { classification, date, dateTime, fullDate, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609121710';
+import { api } from '../lib/api.js?v=202609121727';
+import * as charts from '../lib/charts.js?v=202609121727';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609121727';
+import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609121727';
+import { classification, date, dateTime, fullDate, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609121727';
 
 const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
@@ -68,12 +68,13 @@ function averagingStrip(position) {
     return `<span class="lot-step">
       <span class="muted">${s.round}回目</span>
       <b>${yen(s.target_price)}</b>
-      <span class="badge ${cls}">${label}</span>
+      ${plan.stopped ? '' : `<span class="badge ${cls}">${label}</span>`}
     </span>`;
   };
   return `
-    <div class="lot-averaging">
+    <div class="lot-averaging${plan.stopped ? ' stopped' : ''}">
       <span class="lot-averaging-label">ナンピン</span>
+      ${plan.stopped ? '<span class="badge sell">打止め</span>' : ''}
       <span class="lot-step"><span class="muted">1回目</span>
         <b>${yen(plan.base_price)}</b>
         ${position.first_buy?.split_ratio > 1

@@ -402,6 +402,9 @@ table.data thead th {
 table.data thead th.sortable { cursor: pointer; user-select: none; }
 table.data thead th.sortable:hover { color: var(--text-1); }
 table.data thead th .arrow { color: var(--gold); margin-left: 4px; }
+/* 並べ替えていない列の印。押せることが分かる程度に薄く出す */
+table.data thead th .arrow.idle { color: var(--text-3); opacity: .45; font-size: 11px; }
+table.data thead th.sortable:hover .arrow.idle { opacity: 1; color: var(--gold); }
 table.data td.r, table.data th.r { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
 table.data tbody tr:hover { background: var(--row-hover); }
 table.data tbody tr:nth-child(even) { background: var(--row-stripe); }

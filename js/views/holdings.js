@@ -1,9 +1,9 @@
 // 銘柄一覧: 保有中の銘柄と購入候補を、並べ替え・絞り込みしながら見る。
 
-import { api } from '../lib/api.js?v=202609122323';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609122323';
-import { stockForm } from '../lib/forms.js?v=202609122323';
-import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609122323';
+import { api } from '../lib/api.js?v=202609122328';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609122328';
+import { stockForm } from '../lib/forms.js?v=202609122328';
+import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609122328';
 
 const COLUMNS = [
   { key: 'code', label: 'コード', sort: (a, b) => a.code.localeCompare(b.code) },
@@ -220,8 +220,11 @@ export async function render(root, { navigate }) {
       <table class="data">
         <thead><tr>
           ${columns.map((c) => `<th class="sortable ${c.num ? 'r' : ''} ${c.detail ? 'detail-col' : ''}"
-            data-action="sort" data-key="${c.key}">
-            ${esc(c.label)}${state.sortKey === c.key ? `<span class="arrow">${state.sortDir > 0 ? '▲' : '▼'}</span>` : ''}
+            data-action="sort" data-key="${c.key}" title="押すと並べ替えます">
+            ${esc(c.label)}${state.sortKey === c.key
+    ? `<span class="arrow">${state.sortDir > 0 ? '▲' : '▼'}</span>`
+    // 押せる列だと分かるように、並べ替えていない列にも薄く印を出す
+    : '<span class="arrow idle">⇅</span>'}
           </th>`).join('')}
           <th class="r">操作</th>
         </tr></thead>

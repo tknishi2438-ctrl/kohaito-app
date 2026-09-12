@@ -1,11 +1,11 @@
 // 銘柄詳細: ロットごとの取引台帳と、IRBANK 由来の配当・営業利益の推移。
 
-import { api } from '../lib/api.js?v=202609122232';
-import * as charts from '../lib/charts.js?v=202609122232';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609122232';
-import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609122232';
-import { judgeMetric, STATUS_LABEL } from '../lib/metrics.js?v=202609122232';
-import { classification, date, dateTime, fullDate, lotName, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609122232';
+import { api } from '../lib/api.js?v=202609122250';
+import * as charts from '../lib/charts.js?v=202609122250';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609122250';
+import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609122250';
+import { judgeMetric, scoreVerdicts, STATUS_LABEL } from '../lib/metrics.js?v=202609122250';
+import { classification, date, dateTime, fullDate, lotName, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609122250';
 
 const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
@@ -126,10 +126,12 @@ function positionBlock(position, stock) {
     </div>`;
 }
 
-function dividendChart(stock) {
+/**
+ * 1 株配当の年度ごとの系列。
+ * 同じ年度に予想・修正・実績があるときは実績を優先する。
+ */
+function dividendSeries(stock) {
   const history = (stock.dividend_history || []).filter((r) => r.total !== null);
-  if (!history.length) return '';
-  // 同じ年度に予想・修正・実績があるときは実績を優先する
   const byYear = new Map();
   for (const row of history) {
     const current = byYear.get(row.fiscal_year);
@@ -137,15 +139,28 @@ function dividendChart(stock) {
       byYear.set(row.fiscal_year, row);
     }
   }
-  const years = [...byYear.keys()].sort();
-  const labels = years.map((y) => String(y).slice(2));
-  // 減配の判定には分割調整後を使う。分割で 1 株あたりが下がっただけの年を
-  // 減配と取り違えないため
-  const judged = years.map((y) => ({
-    fiscal_year: y,
-    dividend_per_share: byYear.get(y).adjusted ?? byYear.get(y).total,
-    forecast: byYear.get(y).kind !== '実績',
+  return [...byYear.keys()].sort().map((y) => ({ fiscal_year: y, ...byYear.get(y) }));
+}
+
+/**
+ * 減配の判定に渡す形。分割調整後を使う。
+ * 分割で 1 株あたりが下がっただけの年を、減配と取り違えないため。
+ */
+function dividendJudgeRows(stock) {
+  return dividendSeries(stock).map((r) => ({
+    fiscal_year: r.fiscal_year,
+    dividend_per_share: r.adjusted ?? r.total,
+    forecast: r.kind !== '実績',
   }));
+}
+
+function dividendChart(stock) {
+  const rows = dividendSeries(stock);
+  if (!rows.length) return '';
+  const byYear = new Map(rows.map((r) => [r.fiscal_year, r]));
+  const years = rows.map((r) => r.fiscal_year);
+  const labels = years.map((y) => String(y).slice(2));
+  const judged = dividendJudgeRows(stock);
   return `
     <div class="card" style="margin-top:0">
       <div class="card-head">
@@ -232,6 +247,35 @@ function metricCharts(stock) {
     .join('');
 }
 
+/**
+ * 画面に出したのと同じ判定を集めて点数にする。
+ * 1 株配当だけは配当履歴(分割調整後)から判定するので、別に組み立てる。
+ */
+function metricScore(stock) {
+  const history = stock.profit_history || [];
+  const verdicts = METRIC_CHARTS.map((spec) => ({
+    key: spec.key,
+    verdict: spec.key === 'dividend_chart'
+      ? judgeMetric('dividend_per_share', dividendJudgeRows(stock))
+      : judgeMetric(spec.key, history),
+  }));
+  return scoreVerdicts(verdicts);
+}
+
+/** 合計点。満点に対する割合で色を変える。 */
+function scoreChip(stock) {
+  const score = metricScore(stock);
+  if (!score.max) return '';
+  const tone = score.pct >= 80 ? 'good' : score.pct >= 60 ? 'fair' : 'poor';
+  const title = `適合5点・注意3点・不適0点 × ${score.items} 項目${score.unknown
+    ? ` · うち ${score.unknown} 項目はデータが無く 0 点` : ''}`;
+  return `<span class="score-chip ${tone}" title="${esc(title)}">
+      <b>${score.total}</b><span class="score-max">/ ${score.max}点</span>
+    </span>${score.unknown
+    // 点が低い理由が「悪い」のか「まだ分からない」のかを取り違えないように
+    ? `<span class="score-pending">${score.unknown} 項目はデータ待ち</span>` : ''}`;
+}
+
 export async function render(root, { navigate, params }) {
   const stockId = params[0];
   root.innerHTML = '<div class="loading">読み込み中…</div>';
@@ -255,6 +299,7 @@ export async function render(root, { navigate, params }) {
                 style="vertical-align:middle;margin-right:8px"
                 title="${esc(classification(stock.classification).label)}">${esc(stock.classification)}</span>
           ${esc(stock.name)}
+          ${scoreChip(stock)}
           ${stock.status === 'candidate'
     ? '<span class="badge" style="vertical-align:middle;margin-left:8px">購入候補</span>' : ''}
           ${stock.status === 'sold'

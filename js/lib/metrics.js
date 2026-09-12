@@ -175,3 +175,27 @@ export const STATUS_LABEL = {
   bad: ['不適', 'sell'],
   unknown: ['判断不足', ''],
 };
+
+// 判定を点数にする。判断できなかった項目は 0 点。
+// 満点を項目数で固定するため、確かめられない項目は加点しない。
+export const STATUS_POINTS = { ok: 5, warn: 3, bad: 0, unknown: 0 };
+export const POINTS_PER_ITEM = 5;
+
+/**
+ * 指標の判定をまとめて点数にする。
+ * verdicts は画面に出したものと同じ判定([{key, verdict}])を渡す。
+ */
+export function scoreVerdicts(verdicts) {
+  const scored = verdicts.filter((v) => v.verdict);
+  const total = scored.reduce((sum, v) => sum + STATUS_POINTS[v.verdict.status], 0);
+  const max = scored.length * POINTS_PER_ITEM;
+  return {
+    total,
+    max,
+    items: scored.length,
+    // 判断できなかった項目数。満点に届かない理由が「悪い」のか
+    // 「まだ分からない」のかを見分けるために持つ
+    unknown: scored.filter((v) => v.verdict.status === 'unknown').length,
+    pct: max > 0 ? (total / max) * 100 : 0,
+  };
+}

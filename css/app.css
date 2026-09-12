@@ -745,6 +745,34 @@ table.data td.cell-note {
 .data th.detail-col,
 .data td.detail-col { background: var(--detail-col); }
 
+/* 業績指標の合計点。銘柄名の横に置く */
+.score-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  vertical-align: middle;
+  margin-left: 10px;
+  padding: 3px 11px;
+  border: 2px solid;
+  border-radius: 999px;
+  font-family: var(--mono);
+  font-size: 13px;
+  line-height: 1.4;
+}
+.score-chip b { font-size: 17px; font-weight: 700; }
+.score-chip .score-max { font-size: 11px; opacity: .75; }
+.score-chip.good { color: var(--green); border-color: var(--buy-border); background: var(--buy-bg); }
+.score-chip.fair { color: var(--gold); border-color: var(--gold-dim); background: var(--warn-bg); }
+.score-chip.poor { color: var(--red); border-color: var(--sell-border); background: var(--sell-bg); }
+.score-pending {
+  margin-left: 6px;
+  vertical-align: middle;
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--text-3);
+}
+
 /* 業績指標の判定。グラフの上に基準と結果を 1 行で置く */
 .metric-verdict {
   display: flex;

@@ -1,19 +1,19 @@
 // 計算ロジックのテスト。Python 版 tests/test_models.py・test_repository.py の移植。
 
-import { describe, it, expect } from './runner.js?v=202609122232';
+import { describe, it, expect } from './runner.js?v=202609122250';
 import {
   aggregate, computePosition, dividendMonths, evaluate, firstBuy, LedgerError, previewSplit,
-} from '../js/lib/models.js?v=202609122232';
+} from '../js/lib/models.js?v=202609122250';
 import {
   classifyBySector, evaluateDefensive, evaluateSectors, evaluateStockDividends,
   headroom, planAveraging,
-} from '../js/lib/rules.js?v=202609122232';
-import { Store } from '../js/lib/store.js?v=202609122232';
-import { fromBase64, toBase64 } from '../js/lib/github.js?v=202609122232';
-import { delegate } from '../js/lib/dom.js?v=202609122232';
-import { judgeMetric, trendPct } from '../js/lib/metrics.js?v=202609122232';
-import { date as formatDate, dateTime as formatDateTime, normalizeMonth } from '../js/lib/format.js?v=202609122232';
-import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202609122232';
+} from '../js/lib/rules.js?v=202609122250';
+import { Store } from '../js/lib/store.js?v=202609122250';
+import { fromBase64, toBase64 } from '../js/lib/github.js?v=202609122250';
+import { delegate } from '../js/lib/dom.js?v=202609122250';
+import { judgeMetric, scoreVerdicts, trendPct } from '../js/lib/metrics.js?v=202609122250';
+import { date as formatDate, dateTime as formatDateTime, normalizeMonth } from '../js/lib/format.js?v=202609122250';
+import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202609122250';
 
 const tx = (id, type, date, extra = {}) => ({ id, type, trade_date: date, ...extra });
 
@@ -1412,6 +1412,44 @@ describe('業績指標の判定', () => {
 
   it('1株配当が据え置き続きなら注意', () => {
     expect(judgeMetric('dividend_per_share', years('dividend_per_share', [40, 40, 40, 40])).status).toBe('warn');
+  });
+
+  it('適合5点・注意3点・不適0点で合計する', () => {
+    const score = scoreVerdicts([
+      { key: 'a', verdict: { status: 'ok' } },
+      { key: 'b', verdict: { status: 'ok' } },
+      { key: 'c', verdict: { status: 'warn' } },
+      { key: 'd', verdict: { status: 'bad' } },
+    ]);
+    expect(score.total).toBe(13);      // 5 + 5 + 3 + 0
+    expect(score.max).toBe(20);
+    expect(score.pct).toBe(65);
+  });
+
+  it('判断できない項目は 0 点で、満点には数える', () => {
+    const score = scoreVerdicts([
+      { key: 'a', verdict: { status: 'ok' } },
+      { key: 'b', verdict: { status: 'unknown' } },
+    ]);
+    expect(score.total).toBe(5);
+    expect(score.max).toBe(10);
+    expect(score.unknown).toBe(1);
+  });
+
+  it('判定が無い項目は満点にも数えない', () => {
+    const score = scoreVerdicts([
+      { key: 'a', verdict: { status: 'ok' } },
+      { key: 'b', verdict: null },
+    ]);
+    expect(score.max).toBe(5);
+    expect(score.items).toBe(1);
+  });
+
+  it('8 項目すべて適合なら 40 点', () => {
+    const all = Array.from({ length: 8 }, (_, i) => ({ key: i, verdict: { status: 'ok' } }));
+    const score = scoreVerdicts(all);
+    expect(score.total).toBe(40);
+    expect(score.pct).toBe(100);
   });
 
   it('年あたりの変化率を出す', () => {

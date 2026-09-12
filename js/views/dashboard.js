@@ -1,9 +1,9 @@
 // ダッシュボード: 資産サマリー・分散ルール・構成比・要対応の一覧。
 
-import { api } from '../lib/api.js?v=202609121642';
-import * as charts from '../lib/charts.js?v=202609121642';
-import { delegate, esc, modal, toast } from '../lib/dom.js?v=202609121642';
-import { pct, signClass, yen } from '../lib/format.js?v=202609121642';
+import { api } from '../lib/api.js?v=202609121659';
+import * as charts from '../lib/charts.js?v=202609121659';
+import { delegate, esc, modal, toast } from '../lib/dom.js?v=202609121659';
+import { pct, signClass, yen } from '../lib/format.js?v=202609121659';
 
 function summaryCard(label, value, { cls = '', sub = '' } = {}) {
   return `
@@ -362,7 +362,7 @@ export async function render(root, { navigate }) {
     <div class="summary">
       ${summaryCard('総投資額', yen(s.total_cost), { sub: `${s.holdings} 銘柄 / ${s.position_count} ロット` })}
       ${summaryCard('年間配当合計', yen(s.annual_dividend), { cls: 'gold', sub: `月あたり ${yen(s.monthly_dividend)}` })}
-      ${summaryCard('加重平均利回り', pct(s.weighted_yield), { cls: 'teal', sub: '取得価格ベース' })}
+      ${summaryCard('加重平均利回り', pct(s.weighted_yield), { cls: 'teal', sub: '平均取得単価ベース' })}
       ${hasPrices
     ? summaryCard('評価額', yen(s.market_value), { sub: `株価取得済み ${s.priced_count} 銘柄` })
     : summaryCard('評価額', '—', { sub: '株価が未取得です' })}

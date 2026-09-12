@@ -1,10 +1,10 @@
 // 銘柄詳細: ロットごとの取引台帳と、IRBANK 由来の配当・営業利益の推移。
 
-import { api } from '../lib/api.js?v=202609121642';
-import * as charts from '../lib/charts.js?v=202609121642';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609121642';
-import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609121642';
-import { classification, date, dateTime, fullDate, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609121642';
+import { api } from '../lib/api.js?v=202609121659';
+import * as charts from '../lib/charts.js?v=202609121659';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609121659';
+import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609121659';
+import { classification, date, dateTime, fullDate, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609121659';
 
 const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
@@ -240,7 +240,7 @@ export async function render(root, { navigate, params }) {
       <div class="summary-cell">
         <p class="summary-label">利回り</p>
         <p class="summary-value teal">${m.yield_on_cost ? pct(m.yield_on_cost) : '—'}</p>
-        <p class="summary-sub">現在値ベース ${m.current_yield ? pct(m.current_yield) : '—'}</p>
+        <p class="summary-sub">平均取得単価ベース</p>
       </div>
     </div>
 

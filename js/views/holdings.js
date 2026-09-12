@@ -1,9 +1,9 @@
 // 銘柄一覧: 保有中の銘柄と購入候補を、並べ替え・絞り込みしながら見る。
 
-import { api } from '../lib/api.js?v=202609122328';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609122328';
-import { stockForm } from '../lib/forms.js?v=202609122328';
-import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609122328';
+import { api } from '../lib/api.js?v=202609122347';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609122347';
+import { stockForm } from '../lib/forms.js?v=202609122347';
+import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609122347';
 
 const COLUMNS = [
   { key: 'code', label: 'コード', sort: (a, b) => a.code.localeCompare(b.code) },
@@ -78,7 +78,9 @@ function cellHtml(view, key) {
     case 'name': return `<td><div class="cell-name">
         <span class="badge ${view.classification.toLowerCase()}"
               title="${esc(classification(view.classification).label)}">${esc(view.classification)}</span>
-        <strong>${esc(view.name)}</strong>
+        <strong><a class="site-link" data-action="open-site" data-id="${view.id}"
+           title="${view.website ? '企業サイトを開く' : '企業サイトを検索する'}"
+           >${esc(view.name)}<span class="site-mark">↗</span></a></strong>
         ${view.status === 'candidate' ? '<span class="badge">購入候補</span>' : ''}
         ${view.status === 'sold' ? '<span class="badge">売却済み</span>' : ''}
         ${view.position_count > 1 ? `<span class="badge warn">${view.position_count}ロット</span>` : ''}
@@ -285,6 +287,14 @@ export async function render(root, { navigate }) {
       draw();
     },
     open: (target) => navigate(`stock/${target.dataset.id}`),
+    // 銘柄名から企業サイトへ。URL が未登録なら、名前で検索する形にする。
+    // 委譲は最も近い data-action を拾うので、行のクリック(銘柄詳細へ)は起きない
+    'open-site': (target) => {
+      const stock = views.find((v) => String(v.id) === target.dataset.id);
+      const url = stock.website
+        || `https://duckduckgo.com/?q=${encodeURIComponent(`${stock.code} ${stock.name} 公式サイト`)}`;
+      window.open(url, '_blank', 'noopener,noreferrer');
+    },
     edit: async (target) => {
       const stock = views.find((v) => String(v.id) === target.dataset.id);
       stockForm(stock, reload);

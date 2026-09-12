@@ -1,11 +1,11 @@
 // 銘柄詳細: ロットごとの取引台帳と、IRBANK 由来の配当・営業利益の推移。
 
-import { api } from '../lib/api.js?v=202609122328';
-import * as charts from '../lib/charts.js?v=202609122328';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609122328';
-import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609122328';
-import { dividendJudgeRows, judgeMetric, STATUS_LABEL } from '../lib/metrics.js?v=202609122328';
-import { classification, date, dateTime, fullDate, lotName, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609122328';
+import { api } from '../lib/api.js?v=202609122347';
+import * as charts from '../lib/charts.js?v=202609122347';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609122347';
+import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609122347';
+import { dividendJudgeRows, judgeMetric, STATUS_LABEL } from '../lib/metrics.js?v=202609122347';
+import { classification, date, dateTime, fullDate, lotName, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609122347';
 
 const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
@@ -287,6 +287,11 @@ export async function render(root, { navigate, params }) {
         </p>
       </div>
       <div class="row-actions">
+        <a class="btn btn-ghost btn-sm"
+           href="${esc(stock.website
+    || `https://duckduckgo.com/?q=${encodeURIComponent(`${stock.code} ${stock.name} 公式サイト`)}`)}"
+           target="_blank" rel="noopener noreferrer"
+           >企業サイト${stock.website ? '' : 'を検索'} ↗</a>
         <a class="btn btn-ghost btn-sm" href="https://irbank.net/${esc(stock.code)}/"
            target="_blank" rel="noopener noreferrer">IRBANK で開く ↗</a>
         <button class="btn btn-sm" data-action="edit-stock">銘柄を編集</button>

@@ -1,10 +1,10 @@
 // 銘柄・ポジション・取引の入力フォーム(モーダル)をまとめたモジュール。
 
-import { api } from './api.js?v=202609122328';
-import { confirmDialog, esc, modal, qs, toast } from './dom.js?v=202609122328';
-import { normalizeMonth, shares as fmtShares, thisMonth, TX_LABEL, yen, yenPrecise } from './format.js?v=202609122328';
-import { previewSplit } from './models.js?v=202609122328';
-import { classifyBySector } from './rules.js?v=202609122328';
+import { api } from './api.js?v=202609122347';
+import { confirmDialog, esc, modal, qs, toast } from './dom.js?v=202609122347';
+import { normalizeMonth, shares as fmtShares, thisMonth, TX_LABEL, yen, yenPrecise } from './format.js?v=202609122347';
+import { previewSplit } from './models.js?v=202609122347';
+import { classifyBySector } from './rules.js?v=202609122347';
 
 const CLASSIFICATIONS = [
   ['AUTO', 'おまかせ — セクターから決める'],
@@ -81,6 +81,9 @@ export function stockForm(stock, onDone) {
         ${field('セクター', input('sector', stock?.sector, 'placeholder="卸売" list="sectorList"'))}
         ${field('おすすめ購入時期', input('timing', stock?.timing, 'placeholder="2025/04"'))}
       </div>
+      ${/* type="url" は「www.…」を弾いてしまう。https は保存時に補う */ ''}
+      ${field('企業サイト', input('website', stock?.website, 'inputmode="url" placeholder="www.example.co.jp"'),
+    '銘柄一覧の銘柄名から開けます。空のままなら、名前から検索する形になります。')}
       <div class="field-row">
         ${field('1株あたり年間配当 (円)', numberInput('dividend_per_share', stock?.dividend_per_share, 'min="0"'),
     '利回りと年間配当の計算に使います。')}
@@ -136,6 +139,7 @@ export function stockForm(stock, onDone) {
         sector: data.sector.trim(),
         classification: data.classification,
         timing: data.timing.trim(),
+        website: data.website.trim(),
         dividend_per_share: Number(data.dividend_per_share || 0),
         fiscal_month: data.fiscal_month ? Number(data.fiscal_month) : null,
         memo: data.memo,

@@ -748,6 +748,12 @@ table.data td.cell-note {
 .data th.detail-col,
 .data td.detail-col { background: var(--detail-col); }
 
+/* 銘柄名から企業サイトへ */
+.site-link { color: inherit; text-decoration: none; cursor: pointer; }
+.site-link:hover { color: var(--gold); text-decoration: underline; text-underline-offset: 3px; }
+.site-mark { margin-left: 3px; font-size: 10px; color: var(--text-3); font-weight: 400; }
+.site-link:hover .site-mark { color: var(--gold); }
+
 /* 業績指標の合計点。銘柄名の横に置く */
 .score-chip {
   display: inline-flex;

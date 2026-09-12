@@ -1,19 +1,19 @@
 // 計算ロジックのテスト。Python 版 tests/test_models.py・test_repository.py の移植。
 
-import { describe, it, expect } from './runner.js?v=202609122328';
+import { describe, it, expect } from './runner.js?v=202609122347';
 import {
   aggregate, computePosition, dividendMonths, evaluate, firstBuy, LedgerError, previewSplit,
-} from '../js/lib/models.js?v=202609122328';
+} from '../js/lib/models.js?v=202609122347';
 import {
   classifyBySector, evaluateDefensive, evaluateSectors, evaluateStockDividends,
   headroom, planAveraging,
-} from '../js/lib/rules.js?v=202609122328';
-import { Store } from '../js/lib/store.js?v=202609122328';
-import { fromBase64, toBase64 } from '../js/lib/github.js?v=202609122328';
-import { delegate } from '../js/lib/dom.js?v=202609122328';
-import { judgeMetric, scoreVerdicts, trendPct } from '../js/lib/metrics.js?v=202609122328';
-import { date as formatDate, dateTime as formatDateTime, normalizeMonth } from '../js/lib/format.js?v=202609122328';
-import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202609122328';
+} from '../js/lib/rules.js?v=202609122347';
+import { Store } from '../js/lib/store.js?v=202609122347';
+import { fromBase64, toBase64 } from '../js/lib/github.js?v=202609122347';
+import { delegate } from '../js/lib/dom.js?v=202609122347';
+import { judgeMetric, scoreVerdicts, trendPct } from '../js/lib/metrics.js?v=202609122347';
+import { date as formatDate, dateTime as formatDateTime, normalizeMonth } from '../js/lib/format.js?v=202609122347';
+import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202609122347';
 
 const tx = (id, type, date, extra = {}) => ({ id, type, trade_date: date, ...extra });
 
@@ -350,6 +350,33 @@ describe('銘柄の登録と削除', () => {
     const store = newStore();
     store.createStock({ code: '8058', name: '三菱商事' });
     expect(() => store.createStock({ code: '8058', name: '別の名前' })).toThrow('既に登録');
+  });
+
+  it('企業サイトの URL を保存する', () => {
+    const store = newStore();
+    const stock = store.createStock({ code: '8058', name: '三菱商事', website: 'https://www.mitsubishicorp.com/' });
+    expect(stock.website).toBe('https://www.mitsubishicorp.com/');
+  });
+
+  it('scheme が無ければ https を補う', () => {
+    const store = newStore();
+    expect(store.createStock({ code: '1', name: 'a', website: 'www.example.co.jp' }).website)
+      .toBe('https://www.example.co.jp/');
+  });
+
+  it('http/https 以外は受け付けない', () => {
+    const store = newStore();
+    // javascript: などを踏ませないため、落として空にする
+    expect(store.createStock({ code: '1', name: 'a', website: 'javascript:alert(1)' }).website).toBe('');
+    expect(store.createStock({ code: '2', name: 'b', website: 'ftp://example.com' }).website).toBe('');
+    expect(store.createStock({ code: '3', name: 'c', website: '' }).website).toBe('');
+  });
+
+  it('あとから URL を入れられる', () => {
+    const store = newStore();
+    const stock = store.createStock({ code: '8058', name: '三菱商事' });
+    store.updateStock(stock.id, { website: 'example.com' });
+    expect(store.getStock(stock.id).website).toBe('https://example.com/');
   });
 
   it('必須はコードだけ(銘柄名はあとから入る)', () => {

@@ -5,13 +5,13 @@
 
 import {
   computePosition, LedgerError, previewSplit, TX_TYPES, SPLIT, MOVE_IN, MOVE_OUT,
-} from './models.js?v=202609122328';
-import { lotName, normalizeMonth } from './format.js?v=202609122328';
+} from './models.js?v=202609122347';
+import { lotName, normalizeMonth } from './format.js?v=202609122347';
 import {
   classifyBySector,
   DEFAULT_MAX_SECTOR_PCT, DEFAULT_MAX_STOCK_DIVIDEND_PCT, DEFAULT_MIN_DEFENSIVE_PCT,
   DEFAULT_SECOND_BUY_DROP_PCT, DEFAULT_THIRD_BUY_DROP_PCT,
-} from './rules.js?v=202609122328';
+} from './rules.js?v=202609122347';
 
 export const FORMAT = 'khk-portfolio';
 export const VERSION = 2;
@@ -63,6 +63,23 @@ export function normalize(raw) {
     dividend_history: raw.dividend_history || [],
     profit_history: raw.profit_history || [],
   };
+}
+
+/**
+ * 企業サイトの URL を整える。
+ * http/https 以外は受け付けない(javascript: などを踏ませないため)。
+ * 「www.example.com」のように書かれたら https を補う。
+ */
+function normalizeUrl(value) {
+  const text = String(value || '').trim();
+  if (!text) return '';
+  const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(text) ? text : `https://${text}`;
+  try {
+    const url = new URL(withScheme);
+    return url.protocol === 'http:' || url.protocol === 'https:' ? url.href : '';
+  } catch {
+    return '';
+  }
 }
 
 /**
@@ -185,6 +202,7 @@ export class Store {
       sector: String(data.sector || ''),
       ...resolveClassification(data.classification, data.sector),
       timing: String(data.timing || ''),
+      website: normalizeUrl(data.website),
       dividend_per_share: Number(data.dividend_per_share || 0),
       fiscal_month: data.fiscal_month ? Number(data.fiscal_month) : null,
       pays_interim: data.pays_interim === undefined ? 1 : Number(data.pays_interim),
@@ -211,8 +229,9 @@ export class Store {
         throw new Conflict(`証券コード ${code} は他の銘柄が使用しています`);
       }
     }
+    if ('website' in patch) patch = { ...patch, website: normalizeUrl(patch.website) };
     const allowed = [
-      'code', 'name', 'sector', 'classification', 'timing', 'dividend_per_share',
+      'code', 'name', 'sector', 'classification', 'timing', 'website', 'dividend_per_share',
       'fiscal_month', 'pays_interim', 'market_price', 'market_price_date',
       'forecast_dividend', 'per', 'pbr', 'memo', 'irbank_synced_at',
     ];

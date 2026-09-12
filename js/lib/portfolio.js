@@ -3,12 +3,12 @@
 
 import {
   aggregate, computePosition, dividendMonths, EPSILON, evaluate, firstBuy, sortTransactions,
-} from './models.js?v=202609122328';
+} from './models.js?v=202609122347';
 import {
   evaluateDefensive, evaluateSectors, evaluateStockDividends, planAveraging,
-} from './rules.js?v=202609122328';
-import { lotName } from './format.js?v=202609122328';
-import { scoreStock } from './metrics.js?v=202609122328';
+} from './rules.js?v=202609122347';
+import { lotName } from './format.js?v=202609122347';
+import { scoreStock } from './metrics.js?v=202609122347';
 
 function round(value, digits) {
   const f = 10 ** digits;

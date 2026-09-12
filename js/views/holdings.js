@@ -1,9 +1,9 @@
 // 銘柄一覧: 保有中の銘柄と購入候補を、並べ替え・絞り込みしながら見る。
 
-import { api } from '../lib/api.js?v=202609122007';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609122007';
-import { stockForm } from '../lib/forms.js?v=202609122007';
-import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609122007';
+import { api } from '../lib/api.js?v=202609122136';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609122136';
+import { stockForm } from '../lib/forms.js?v=202609122136';
+import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609122136';
 
 const COLUMNS = [
   { key: 'code', label: 'コード', sort: (a, b) => a.code.localeCompare(b.code) },
@@ -41,6 +41,17 @@ function writeDetail(on) {
 
 function visibleColumns() {
   return COLUMNS.filter((c) => !c.detail || state.detail);
+}
+
+/**
+ * 「くわしく」で出した列に印を付ける。
+ * 既に class があればそこに足し、無ければ付ける(td の中だけを見る)。
+ */
+function markDetail(cell, column) {
+  if (!column.detail) return cell;
+  return /^<td[^>]*\sclass="/.test(cell)
+    ? cell.replace('class="', 'class="detail-col ')
+    : cell.replace(/^<td/, '<td class="detail-col"');
 }
 
 const state = {
@@ -166,7 +177,9 @@ function footRow(rows, columns) {
   };
   const firstValued = columns.findIndex((c) => cell[c.key]);
   const lead = firstValued === -1 ? columns.length : firstValued;
-  const cells = columns.slice(lead).map((c) => (cell[c.key] ? cell[c.key]() : '<td></td>')).join('');
+  const cells = columns.slice(lead)
+    .map((c) => markDetail(cell[c.key] ? cell[c.key]() : '<td></td>', c))
+    .join('');
   return `<tr style="background:var(--surface-2);font-weight:700">
     <td colspan="${lead}">合計 ${rows.length} 銘柄</td>${cells}<td></td>
   </tr>`;
@@ -192,7 +205,8 @@ export async function render(root, { navigate }) {
     table.innerHTML = rows.length ? `
       <table class="data">
         <thead><tr>
-          ${columns.map((c) => `<th class="sortable ${c.num ? 'r' : ''}" data-action="sort" data-key="${c.key}">
+          ${columns.map((c) => `<th class="sortable ${c.num ? 'r' : ''} ${c.detail ? 'detail-col' : ''}"
+            data-action="sort" data-key="${c.key}">
             ${esc(c.label)}${state.sortKey === c.key ? `<span class="arrow">${state.sortDir > 0 ? '▲' : '▼'}</span>` : ''}
           </th>`).join('')}
           <th class="r">操作</th>
@@ -200,7 +214,7 @@ export async function render(root, { navigate }) {
         <tbody>
           ${rows.map((v) => `<tr class="clickable ${v.metrics.shares <= 0 ? 'zero' : ''}"
               data-action="open" data-id="${v.id}">
-            ${columns.map((c) => cellHtml(v, c.key)).join('')}
+            ${columns.map((c) => markDetail(cellHtml(v, c.key), c)).join('')}
             <td class="r"><div class="row-actions">
               <button class="btn btn-sm btn-ghost" data-action="edit" data-id="${v.id}">編集</button>
             </div></td>

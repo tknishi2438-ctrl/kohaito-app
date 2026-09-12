@@ -42,6 +42,8 @@
 
   --row-hover:    rgba(0, 0, 0, .045);
   --row-stripe:   rgba(0, 0, 0, .016);
+  /* 「くわしく」で出す列の地色。行の縞より少し濃くして、列のまとまりを出す */
+  --detail-col:   rgba(138, 106, 23, .05);
   --tab-hover:    rgba(0, 0, 0, .035);
   --overlay:      rgba(58, 52, 42, .38);
   --topbar-fade:  rgba(244, 241, 236, .92);
@@ -106,6 +108,7 @@
 
   --row-hover:    rgba(255, 255, 255, .05);
   --row-stripe:   rgba(255, 255, 255, .015);
+  --detail-col:   rgba(201, 162, 75, .07);
   --tab-hover:    rgba(255, 255, 255, .04);
   --overlay:      rgba(4, 9, 22, .74);
   --topbar-fade:  rgba(13, 23, 48, .92);
@@ -737,6 +740,10 @@ table.data td.cell-note {
 .lot-step .badge { align-self: center; }
 /* 打止めにしたロット。目安は残すが、買い時としては見ない */
 .lot-averaging.stopped .lot-step b { color: var(--text-3); font-weight: 400; }
+
+/* 「くわしく」で出し入れする列。地色を少し変えて、まとまりを示す */
+.data th.detail-col,
+.data td.detail-col { background: var(--detail-col); }
 
 /* コードから自動入力したときの知らせ */
 .code-hint { display: block; margin-top: 4px; color: var(--teal); font-weight: 700; }

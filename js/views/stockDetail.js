@@ -1,10 +1,11 @@
 // 銘柄詳細: ロットごとの取引台帳と、IRBANK 由来の配当・営業利益の推移。
 
-import { api } from '../lib/api.js?v=202609122209';
-import * as charts from '../lib/charts.js?v=202609122209';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609122209';
-import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609122209';
-import { classification, date, dateTime, fullDate, lotName, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609122209';
+import { api } from '../lib/api.js?v=202609122232';
+import * as charts from '../lib/charts.js?v=202609122232';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609122232';
+import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609122232';
+import { judgeMetric, STATUS_LABEL } from '../lib/metrics.js?v=202609122232';
+import { classification, date, dateTime, fullDate, lotName, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609122232';
 
 const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
@@ -138,12 +139,20 @@ function dividendChart(stock) {
   }
   const years = [...byYear.keys()].sort();
   const labels = years.map((y) => String(y).slice(2));
+  // 減配の判定には分割調整後を使う。分割で 1 株あたりが下がっただけの年を
+  // 減配と取り違えないため
+  const judged = years.map((y) => ({
+    fiscal_year: y,
+    dividend_per_share: byYear.get(y).adjusted ?? byYear.get(y).total,
+    forecast: byYear.get(y).kind !== '実績',
+  }));
   return `
     <div class="card" style="margin-top:0">
       <div class="card-head">
-        <h3 class="card-title">1株配当の推移</h3>
-        <p class="card-note">IRBANK · 実績優先(直近は予想)</p>
+        <h3 class="card-title">1株配当金</h3>
+        <p class="card-note">IRBANK · 円/株 · 実績優先(直近は予想)</p>
       </div>
+      ${metricVerdict(judged, 'dividend_per_share')}
       ${charts.timeSeries(labels, [
     { label: '年間配当 (円/株)', type: 'bar', color: charts.color(0), values: years.map((y) => byYear.get(y).total) },
     { label: '分割調整後 (円/株)', type: 'line', color: charts.color(1), values: years.map((y) => byYear.get(y).adjusted) },
@@ -174,6 +183,19 @@ const METRIC_UNIT = {
   yen: { note: '円', format: (v) => `${num(v, 2)}` },
 };
 
+/** 高配当株として好ましい形かの判定。基準と結果を 1 行で見せる。 */
+function metricVerdict(history, key) {
+  const verdict = judgeMetric(key, history);
+  if (!verdict) return '';
+  const [label, cls] = STATUS_LABEL[verdict.status];
+  return `
+    <p class="metric-verdict">
+      <span class="badge ${cls} verdict-mark">${label}</span>
+      <span class="verdict-text">${esc(verdict.summary)}</span>
+      <span class="muted">基準: ${esc(verdict.criterion)}</span>
+    </p>`;
+}
+
 function metricChart(history, spec) {
   const rows = history.filter((r) => r[spec.key] !== null && r[spec.key] !== undefined);
   if (rows.length < 2) return '';
@@ -186,6 +208,7 @@ function metricChart(history, spec) {
         <h3 class="card-title">${esc(spec.label)}</h3>
         <p class="card-note">IRBANK · ${unit.note}${hasForecast ? ' · 直近は会社予想' : ''}</p>
       </div>
+      ${metricVerdict(history, spec.key)}
       ${charts.timeSeries(
     rows.map((r) => String(r.fiscal_year).slice(2)),
     [{

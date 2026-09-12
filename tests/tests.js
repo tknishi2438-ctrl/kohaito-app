@@ -1,18 +1,19 @@
 // 計算ロジックのテスト。Python 版 tests/test_models.py・test_repository.py の移植。
 
-import { describe, it, expect } from './runner.js?v=202609122209';
+import { describe, it, expect } from './runner.js?v=202609122232';
 import {
   aggregate, computePosition, dividendMonths, evaluate, firstBuy, LedgerError, previewSplit,
-} from '../js/lib/models.js?v=202609122209';
+} from '../js/lib/models.js?v=202609122232';
 import {
   classifyBySector, evaluateDefensive, evaluateSectors, evaluateStockDividends,
   headroom, planAveraging,
-} from '../js/lib/rules.js?v=202609122209';
-import { Store } from '../js/lib/store.js?v=202609122209';
-import { fromBase64, toBase64 } from '../js/lib/github.js?v=202609122209';
-import { delegate } from '../js/lib/dom.js?v=202609122209';
-import { date as formatDate, dateTime as formatDateTime, normalizeMonth } from '../js/lib/format.js?v=202609122209';
-import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202609122209';
+} from '../js/lib/rules.js?v=202609122232';
+import { Store } from '../js/lib/store.js?v=202609122232';
+import { fromBase64, toBase64 } from '../js/lib/github.js?v=202609122232';
+import { delegate } from '../js/lib/dom.js?v=202609122232';
+import { judgeMetric, trendPct } from '../js/lib/metrics.js?v=202609122232';
+import { date as formatDate, dateTime as formatDateTime, normalizeMonth } from '../js/lib/format.js?v=202609122232';
+import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202609122232';
 
 const tx = (id, type, date, extra = {}) => ({ id, type, trade_date: date, ...extra });
 
@@ -1326,6 +1327,98 @@ describe('銘柄ごとのナンピン判定', () => {
     }
     expect(failed).toBe(true);
     expect(store.getSettings().second_buy_drop_pct).toBe(20);
+  });
+});
+
+// ------------------------------------------------------ 業績指標の判定
+
+describe('業績指標の判定', () => {
+  const years = (key, values, forecastLast = false) => values.map((v, i) => ({
+    fiscal_year: 2015 + i,
+    [key]: v,
+    forecast: forecastLast && i === values.length - 1,
+  }));
+
+  it('伸びていれば適合', () => {
+    const r = judgeMetric('revenue', years('revenue', [100, 110, 120, 130, 140]));
+    expect(r.status).toBe('ok');
+  });
+
+  it('横ばいなら注意', () => {
+    expect(judgeMetric('revenue', years('revenue', [100, 100, 101, 100, 100])).status).toBe('warn');
+  });
+
+  it('減っていれば不適', () => {
+    expect(judgeMetric('revenue', years('revenue', [140, 130, 120, 110, 100])).status).toBe('bad');
+  });
+
+  it('年数が足りなければ判断しない', () => {
+    expect(judgeMetric('revenue', years('revenue', [100, 120])).status).toBe('unknown');
+  });
+
+  it('会社予想は判断に混ぜない', () => {
+    // 実績は減っているが、予想だけ跳ね上がっている場合
+    const rows = years('revenue', [140, 130, 120, 110, 900], true);
+    expect(judgeMetric('revenue', rows).status).toBe('bad');
+  });
+
+  it('営業利益率は 10% 以上で適合', () => {
+    expect(judgeMetric('operating_margin', years('operating_margin', [9, 9, 12])).status).toBe('ok');
+    expect(judgeMetric('operating_margin', years('operating_margin', [9, 9, 8.5])).status).toBe('warn');
+    expect(judgeMetric('operating_margin', years('operating_margin', [9, 9, 4])).status).toBe('bad');
+  });
+
+  it('自己資本比率は 40% 以上で適合', () => {
+    expect(judgeMetric('equity_ratio', years('equity_ratio', [50, 50, 45])).status).toBe('ok');
+    expect(judgeMetric('equity_ratio', years('equity_ratio', [50, 50, 35])).status).toBe('warn');
+    expect(judgeMetric('equity_ratio', years('equity_ratio', [50, 50, 20])).status).toBe('bad');
+  });
+
+  it('配当性向は 30〜50% で適合', () => {
+    expect(judgeMetric('payout_ratio', years('payout_ratio', [40, 40, 40])).status).toBe('ok');
+    expect(judgeMetric('payout_ratio', years('payout_ratio', [40, 40, 60])).status).toBe('warn');
+    expect(judgeMetric('payout_ratio', years('payout_ratio', [40, 40, 20])).status).toBe('warn');
+  });
+
+  it('配当性向が高すぎれば不適', () => {
+    const r = judgeMetric('payout_ratio', years('payout_ratio', [40, 40, 95]));
+    expect(r.status).toBe('bad');
+    expect(r.summary.includes('高すぎ')).toBe(true);
+  });
+
+  it('営業CF は直近が赤字なら不適', () => {
+    expect(judgeMetric('operating_cf', years('operating_cf', [100, 200, -50])).status).toBe('bad');
+  });
+
+  it('営業CF は過去に赤字があれば、伸びていても注意どまり', () => {
+    const r = judgeMetric('operating_cf', years('operating_cf', [-50, 100, 200, 300]));
+    expect(r.status).toBe('warn');
+    expect(r.summary.includes('赤字')).toBe(true);
+  });
+
+  it('営業CF が黒字続きで伸びていれば適合', () => {
+    expect(judgeMetric('operating_cf', years('operating_cf', [100, 150, 200, 260])).status).toBe('ok');
+  });
+
+  it('1株配当は減配があれば不適', () => {
+    const r = judgeMetric('dividend_per_share', years('dividend_per_share', [30, 40, 35, 50]));
+    expect(r.status).toBe('bad');
+    expect(r.summary.includes('減配')).toBe(true);
+  });
+
+  it('1株配当は減配なしで増配なら適合', () => {
+    expect(judgeMetric('dividend_per_share', years('dividend_per_share', [30, 35, 40, 45])).status).toBe('ok');
+  });
+
+  it('1株配当が据え置き続きなら注意', () => {
+    expect(judgeMetric('dividend_per_share', years('dividend_per_share', [40, 40, 40, 40])).status).toBe('warn');
+  });
+
+  it('年あたりの変化率を出す', () => {
+    // 100 から毎年 +10。平均 120 に対し傾き 10 なので およそ +8.3%
+    expect(trendPct([100, 110, 120, 130, 140])).toBeCloseTo(8.33, 1);
+    expect(trendPct([100, 100, 100])).toBe(0);
+    expect(trendPct([100, 200])).toBe(null);
   });
 });
 

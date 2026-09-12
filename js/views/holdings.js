@@ -1,19 +1,19 @@
 // 保有一覧: 並べ替え・絞り込みができる銘柄テーブル。
 
-import { api } from '../lib/api.js?v=202609121756';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609121756';
-import { stockForm } from '../lib/forms.js?v=202609121756';
-import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609121756';
+import { api } from '../lib/api.js?v=202609121800';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609121800';
+import { stockForm } from '../lib/forms.js?v=202609121800';
+import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609121800';
 
 const COLUMNS = [
   { key: 'code', label: 'コード', sort: (a, b) => a.code.localeCompare(b.code) },
   { key: 'name', label: '銘柄', sort: (a, b) => a.name.localeCompare(b.name, 'ja') },
-  { key: 'sector', label: 'セクター', sort: (a, b) => (a.sector || '').localeCompare(b.sector || '', 'ja') },
+  { key: 'sector', label: 'セクター', sort: (a, b) => (a.sector || '').localeCompare(b.sector || '', 'ja'), detail: true },
   // 現在値と、その隣に見比べるナンピンの目安を先頭に置く
   { key: 'market_price', label: '現在値', num: true },
   { key: 'next_buy_price', label: 'ナンピン', num: true },
-  { key: 'shares', label: '株数', num: true },
   // ここから先は「くわしく」を入れたときだけ出す
+  { key: 'shares', label: '株数', num: true, detail: true },
   { key: 'avg_price', label: '平均取得', num: true, detail: true },
   { key: 'cost', label: '投資額', num: true, detail: true },
   { key: 'unrealized_pl', label: '含み損益', num: true, detail: true },
@@ -144,7 +144,7 @@ function apply(views) {
 
 /**
  * 合計行。出ている列から組み立てるので、列を足しても消してもずれない。
- * 先頭の 3 列(コード・銘柄・セクター)は常に出るため、まとめて 1 つにする。
+ * 合計を出す最初の列までは、見出しの「合計 N 銘柄」でまとめて埋める。
  */
 function footRow(rows, columns) {
   const total = rows.reduce((acc, v) => ({
@@ -160,9 +160,11 @@ function footRow(rows, columns) {
     annual_dividend: () => `<td class="r gold">${yen(total.dividend)}</td>`,
     yield_on_cost: () => `<td class="r teal">${pct(weighted)}</td>`,
   };
-  const cells = columns.slice(3).map((c) => (cell[c.key] ? cell[c.key]() : '<td></td>')).join('');
+  const firstValued = columns.findIndex((c) => cell[c.key]);
+  const lead = firstValued === -1 ? columns.length : firstValued;
+  const cells = columns.slice(lead).map((c) => (cell[c.key] ? cell[c.key]() : '<td></td>')).join('');
   return `<tr style="background:var(--surface-2);font-weight:700">
-    <td colspan="3">合計 ${rows.length} 銘柄</td>${cells}<td></td>
+    <td colspan="${lead}">合計 ${rows.length} 銘柄</td>${cells}<td></td>
   </tr>`;
 }
 
@@ -211,7 +213,7 @@ export async function render(root, { navigate }) {
       </div>
       <span class="spacer"></span>
       <label class="switch${state.detail ? ' on' : ''}"
-             title="平均取得・投資額・含み損益・年間配当・取得利回りを出し入れします">
+             title="セクター・株数・平均取得・投資額・含み損益・年間配当・取得利回りを出し入れします">
         <input type="checkbox" data-action="toggle-detail" ${state.detail ? 'checked' : ''}>
         <span class="switch-track"><span class="switch-knob"></span></span>
         <span class="switch-label">くわしく</span>

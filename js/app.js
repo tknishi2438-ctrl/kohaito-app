@@ -1,14 +1,15 @@
 // 画面遷移(ハッシュルーティング)と初期化。
 
-import { api, onStatusChange } from './lib/api.js?v=202609121918';
-import { init as initData } from './lib/api.js?v=202609121918';
-import { esc, qs, qsa, toast } from './lib/dom.js?v=202609121918';
-import * as theme from './lib/theme.js?v=202609121918';
-import * as dashboard from './views/dashboard.js?v=202609121918';
-import * as holdings from './views/holdings.js?v=202609121918';
-import * as ledger from './views/ledger.js?v=202609121918';
-import * as settings from './views/settings.js?v=202609121918';
-import * as stockDetail from './views/stockDetail.js?v=202609121918';
+import { api, onStatusChange } from './lib/api.js?v=202609121924';
+import { init as initData } from './lib/api.js?v=202609121924';
+import { esc, qs, qsa, toast } from './lib/dom.js?v=202609121924';
+import { ensureLatest } from './lib/freshness.js?v=202609121924';
+import * as theme from './lib/theme.js?v=202609121924';
+import * as dashboard from './views/dashboard.js?v=202609121924';
+import * as holdings from './views/holdings.js?v=202609121924';
+import * as ledger from './views/ledger.js?v=202609121924';
+import * as settings from './views/settings.js?v=202609121924';
+import * as stockDetail from './views/stockDetail.js?v=202609121924';
 
 const ROUTES = [
   { pattern: /^dashboard$/, tab: 'dashboard', view: dashboard },
@@ -88,6 +89,9 @@ onStatusChange((status) => {
 
 theme.restore();
 paintThemeToggle();
+
+// 新しい版が出ていれば読み込み直す。描画は止めずに裏で確かめる
+ensureLatest().catch(() => { /* 確かめられなくても今の画面は使える */ });
 
 // データを読み込んでから最初の描画を行う
 initData()

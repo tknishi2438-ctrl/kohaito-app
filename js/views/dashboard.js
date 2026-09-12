@@ -1,9 +1,9 @@
 // ダッシュボード: 資産サマリー・分散ルール・構成比・要対応の一覧。
 
-import { api } from '../lib/api.js?v=202609121603';
-import * as charts from '../lib/charts.js?v=202609121603';
-import { delegate, esc, modal, toast } from '../lib/dom.js?v=202609121603';
-import { pct, signClass, yen } from '../lib/format.js?v=202609121603';
+import { api } from '../lib/api.js?v=202609121609';
+import * as charts from '../lib/charts.js?v=202609121609';
+import { delegate, esc, modal, toast } from '../lib/dom.js?v=202609121609';
+import { pct, signClass, yen } from '../lib/format.js?v=202609121609';
 
 function summaryCard(label, value, { cls = '', sub = '' } = {}) {
   return `
@@ -220,7 +220,8 @@ function averagingCard(plan) {
     <tr class="clickable" data-action="open-stock" data-id="${r.id}">
       <td style="width:44px" class="muted num">${esc(r.code)}</td>
       <td><span class="badge ${r.classification.toLowerCase()}">${esc(r.classification)}</span>
-          <span style="margin-left:8px">${esc(r.name)}</span></td>
+          <span style="margin-left:8px">${esc(r.name)}</span>
+          ${r.multi_lot ? `<span class="muted" style="margin-left:6px;font-size:11px">${esc(r.position_label)}</span>` : ''}</td>
       <td class="r"><span class="badge ${ready ? 'buy' : 'warn'}">${r.round} 回目</span></td>
       <td class="r num">${yen(r.market_price)}</td>
       <td class="r num muted">目安 ${yen(r.target_price)}</td>

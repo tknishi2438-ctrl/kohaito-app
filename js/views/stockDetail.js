@@ -1,10 +1,10 @@
 // 銘柄詳細: ロットごとの取引台帳と、IRBANK 由来の配当・営業利益の推移。
 
-import { api } from '../lib/api.js?v=202609121603';
-import * as charts from '../lib/charts.js?v=202609121603';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609121603';
-import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609121603';
-import { classification, date, dateTime, fullDate, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609121603';
+import { api } from '../lib/api.js?v=202609121609';
+import * as charts from '../lib/charts.js?v=202609121609';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609121609';
+import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609121609';
+import { classification, date, dateTime, fullDate, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609121609';
 
 const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
@@ -45,11 +45,13 @@ const STEP_LABEL = {
   waiting: ['待ち', 'muted'],
 };
 
-/** ナンピン買いの目安。1 回目の値段を基準に、2 回目・3 回目の株価を示す。 */
+/**
+ * ナンピン買いの目安。ロットごとに、そのロットの 1 回目の値段を基準にする。
+ * ロットが違えば買い始めた値段も違うので、目安の株価も別々になる。
+ */
 function averagingCard(stock) {
-  const plan = stock.averaging;
-  if (!plan) return '';
-  const [, verdictClass] = plan.next && plan.next.reached ? ['', 'buy'] : ['', ''];
+  const lots = stock.positions.filter((p) => p.averaging);
+  if (!lots.length) return '';
 
   const step = (s) => {
     const [label, cls] = STEP_LABEL[s.status];
@@ -66,30 +68,46 @@ function averagingCard(stock) {
       </tr>`;
   };
 
-  return `
-    <div class="card">
-      <div class="card-head">
-        <h3 class="card-title">ナンピンの買い時</h3>
-        <p class="card-note">1 回目 ${yen(plan.base_price)}${stock.first_buy?.split_ratio > 1
-    ? `(分割前 ${yen(stock.first_buy.raw_price)})` : ''} が基準 · 買付 ${plan.buy_count} 回</p>
-      </div>
-      ${plan.completed
+  const lotBlock = (lot) => {
+    const plan = lot.averaging;
+    const base = lot.first_buy;
+    return `
+      <div class="rule-block">
+        <div class="rule-head">
+          <h4>${esc(lot.label || '既定のロット')}</h4>
+          <span class="rule-limit">
+            1 回目 ${yen(plan.base_price)}${base?.split_ratio > 1
+    ? `(分割前 ${yen(base.raw_price)})` : ''} が基準 · ${plan.buy_count} 回買付済み
+          </span>
+        </div>
+        ${plan.completed
     ? '<p class="rule-verdict"><span class="badge">完了</span> 3 回とも買い終えています</p>'
     : plan.actionable
       ? `<p class="rule-verdict"><span class="badge buy">買い時</span>
           ${plan.next.round} 回目の目安 ${yen(plan.next.target_price)} に届いています</p>`
       : ''}
-      <table class="data">
-        <thead><tr>
-          <th>回</th><th class="r">目安の株価</th><th class="r">現在値との差</th><th class="r">状態</th>
-        </tr></thead>
-        <tbody>${plan.steps.map(step).join('')}</tbody>
-      </table>
+        <table class="data">
+          <thead><tr>
+            <th>回</th><th class="r">目安の株価</th><th class="r">現在値との差</th><th class="r">状態</th>
+          </tr></thead>
+          <tbody>${plan.steps.map(step).join('')}</tbody>
+        </table>
+      </div>`;
+  };
+
+  const anyPlan = lots[0].averaging;
+  return `
+    <div class="card">
+      <div class="card-head">
+        <h3 class="card-title">ナンピンの買い時</h3>
+        <p class="card-note">現在値 ${anyPlan.market_price ? yen(anyPlan.market_price) : '未取得'}
+          ${lots.length > 1 ? ` · ${lots.length} ロットそれぞれの基準で判定` : ''}</p>
+      </div>
+      ${lots.map(lotBlock).join('')}
       <p class="hint">
-        現在値 ${plan.market_price ? yen(plan.market_price) : '未取得'}
-        ${plan.change_pct === null ? ''
-    : `・1 回目から <b class="${signClass(plan.change_pct)}">${pct(plan.change_pct, { sign: true, digits: 1 })}</b>`}<br>
-        基準は 1 回目に買った値段です。平均取得単価ではありません。
+        基準は<b style="color:var(--text-2)">そのロットで 1 回目に買った値段</b>です。
+        平均取得単価ではありません。ロットが違えば買い始めた値段も違うので、
+        目安の株価もロットごとに変わります。
       </p>
     </div>`;
 }

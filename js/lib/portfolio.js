@@ -3,18 +3,22 @@
 
 import {
   aggregate, computePosition, dividendMonths, EPSILON, evaluate, firstBuy, sortTransactions,
-} from './models.js?v=202609121603';
+} from './models.js?v=202609121609';
 import {
   evaluateDefensive, evaluateSectors, evaluateStockDividends, planAveraging,
-} from './rules.js?v=202609121603';
+} from './rules.js?v=202609121609';
 
 function round(value, digits) {
   const f = 10 ** digits;
   return Math.round(value * f) / f;
 }
 
-function buildPositionView(position, stock, transactions) {
+function buildPositionView(position, stock, transactions, settings = {}) {
   const metrics = computePosition(transactions);
+  // ナンピンはロット単位で見る。ロットごとに買い始めた値段が違うため
+  const base = firstBuy(transactions);
+  // 振替で始まったロット(分割で切り出した分)は、その受入を 1 回目と数える
+  const acquisitions = metrics.buy_count + (base?.from_transfer ? 1 : 0);
   return {
     ...position,
     code: stock.code,
@@ -22,21 +26,34 @@ function buildPositionView(position, stock, transactions) {
     sector: stock.sector,
     classification: stock.classification,
     transaction_count: transactions.length,
-    // ナンピンの基準に使う。分割があっても今の株価と比べられる値
-    first_buy: firstBuy(transactions),
+    first_buy: base,
+    averaging: planAveraging(
+      { basePrice: base?.price ?? null, buyCount: acquisitions, marketPrice: stock.market_price },
+      dropsOf(settings),
+    ),
     metrics: evaluate(metrics, stock.dividend_per_share || 0, stock.market_price),
   };
 }
 
-/** 銘柄で最初に買った 1 件を選ぶ。日付未設定は台帳と同じく最も古い扱い。 */
-function earliestBuy(positions) {
-  const buys = positions.map((p) => p.first_buy).filter(Boolean);
-  if (!buys.length) return null;
-  return buys.reduce((oldest, b) => {
-    if (!oldest.date) return oldest;
-    if (!b.date) return b;
-    return b.date < oldest.date ? b : oldest;
+function dropsOf(settings) {
+  return [settings.second_buy_drop_pct, settings.third_buy_drop_pct].filter((v) => v > 0);
+}
+
+/**
+ * 銘柄としての代表になるロットを選ぶ。
+ * 買い時のものを優先し、その中でも目安に深く届いているものを先に見る。
+ */
+function leadingLot(positions) {
+  const candidates = positions.filter(
+    (p) => p.metrics.shares > EPSILON && p.averaging && p.averaging.next,
+  );
+  if (!candidates.length) return null;
+  const sorted = [...candidates].sort((a, b) => {
+    if (a.averaging.actionable !== b.averaging.actionable) return a.averaging.actionable ? -1 : 1;
+    return (a.averaging.next.gap_pct ?? Infinity) - (b.averaging.next.gap_pct ?? Infinity);
   });
+  const lot = sorted[0];
+  return { ...lot.averaging, position_id: lot.id, position_label: lot.label || '既定のロット' };
 }
 
 /** 銘柄単位の合計。複数ロットは合算した数値も併せて返す。 */
@@ -60,17 +77,13 @@ function buildStockView(stock, positions, settings = {}) {
     last_trade_date: null,
   };
 
-  const base = earliestBuy(positions);
   return {
     ...stock,
     dividend_months: dividendMonths(stock.fiscal_month, Boolean(stock.pays_interim ?? 1)),
     positions,
     position_count: positions.length,
-    first_buy: base,
-    averaging: planAveraging(
-      { basePrice: base?.price ?? null, buyCount: rolled.buy_count, marketPrice: stock.market_price },
-      [settings.second_buy_drop_pct, settings.third_buy_drop_pct].filter((v) => v > 0),
-    ),
+    // 銘柄としては、いちばん買い時に近いロットを代表として見せる
+    averaging: leadingLot(positions),
     metrics: evaluate(rolled, stock.dividend_per_share || 0, stock.market_price),
   };
 }
@@ -82,6 +95,7 @@ export function listStockViews(store) {
     byPosition.get(tx.position_id).push(tx);
   }
 
+  const settings = store.getSettings();
   const stockById = new Map(store.doc.stocks.map((s) => [s.id, s]));
   const byStock = new Map();
   for (const position of store.listPositions()) {
@@ -89,20 +103,20 @@ export function listStockViews(store) {
     if (!stock) continue;
     if (!byStock.has(stock.id)) byStock.set(stock.id, []);
     byStock.get(stock.id).push(
-      buildPositionView(position, stock, byPosition.get(position.id) || []),
+      buildPositionView(position, stock, byPosition.get(position.id) || [], settings),
     );
   }
 
-  const settings = store.getSettings();
   return store.listStocks().map((s) => buildStockView(s, byStock.get(s.id) || [], settings));
 }
 
 export function getStockView(store, stockId) {
   const stock = store.getStock(stockId);
+  const settings = store.getSettings();
   const positions = store.listPositions(stock.id).map((p) => (
-    buildPositionView(p, stock, store.listTransactions(p.id))
+    buildPositionView(p, stock, store.listTransactions(p.id), settings)
   ));
-  const view = buildStockView(stock, positions, store.getSettings());
+  const view = buildStockView(stock, positions, settings);
   const positionIds = new Set(positions.map((p) => p.id));
 
   view.dividend_history = store.getDividendHistory(stock.id);
@@ -200,6 +214,9 @@ export function dashboard(store) {
   const brief = (v) => ({
     id: v.id, code: v.code, name: v.name, sector: v.sector, classification: v.classification,
     market_price: v.market_price,
+    position_label: v.averaging.position_label,
+    // 同じ銘柄でもロットごとに基準が違うので、どのロットの話か添える
+    multi_lot: v.position_count > 1,
     base_price: v.averaging.base_price,
     change_pct: v.averaging.change_pct,
     round: v.averaging.next.round,

@@ -170,28 +170,40 @@ export function computePosition(transactions) {
 }
 
 /**
- * 最初の買付を、そのあとの分割ぶん調整して返す。
+ * そのロットで最初に株が入った 1 件を、分割ぶん調整して返す。
  *
  * ナンピンの判断は「1 回目に買った値段」を基準にするが、分割があると
  * 1 株の値段が変わるため、当時の値段のままでは今の株価と比べられない。
  * 1 株 → 2 株なら、当時の 2,000 円は今の 1,000 円にあたる。
+ *
+ * 分割で切り出したロットには買付が無く、振替で株が入る。その 1 株あたりの
+ * 取得原価を基準にする(もとのロットの 1 回目と同じ値になる)。
  */
 export function firstBuy(transactions) {
   let price = null;
   let date = null;
-  let ratio = 1;   // 最初の買付より後に起きた分割の累積比率
+  let ratio = 1;           // 最初に株が入ったあとに起きた分割の累積比率
+  let fromTransfer = false;
   for (const tx of sortTransactions(transactions)) {
     const type = String(tx.type || '').toUpperCase();
-    if (type === BUY) {
-      if (price !== null) continue;
-      price = num(tx.price);
+    if (price === null && (type === BUY || type === MOVE_IN)) {
+      const qty = num(tx.shares);
+      if (qty <= 0) continue;
+      price = type === BUY ? num(tx.price) : num(tx.amount) / qty;
+      fromTransfer = type === MOVE_IN;
       date = (tx.trade_date || '').trim() || null;
     } else if (type === SPLIT && price !== null) {
       ratio *= splitRatio(tx);
     }
   }
   if (price === null || price <= 0) return null;
-  return { price: round(price / ratio, 4), date, raw_price: price, split_ratio: ratio };
+  return {
+    price: round(price / ratio, 4),
+    date,
+    raw_price: round(price, 4),
+    split_ratio: ratio,
+    from_transfer: fromTransfer,
+  };
 }
 
 /**

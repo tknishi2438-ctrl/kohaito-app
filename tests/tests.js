@@ -1,17 +1,17 @@
 // 計算ロジックのテスト。Python 版 tests/test_models.py・test_repository.py の移植。
 
-import { describe, it, expect } from './runner.js?v=202609121603';
+import { describe, it, expect } from './runner.js?v=202609121609';
 import {
   aggregate, computePosition, dividendMonths, evaluate, firstBuy, LedgerError, previewSplit,
-} from '../js/lib/models.js?v=202609121603';
+} from '../js/lib/models.js?v=202609121609';
 import {
   evaluateDefensive, evaluateSectors, evaluateStockDividends, headroom, planAveraging,
-} from '../js/lib/rules.js?v=202609121603';
-import { Store } from '../js/lib/store.js?v=202609121603';
-import { fromBase64, toBase64 } from '../js/lib/github.js?v=202609121603';
-import { delegate } from '../js/lib/dom.js?v=202609121603';
-import { date as formatDate, dateTime as formatDateTime, normalizeMonth } from '../js/lib/format.js?v=202609121603';
-import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202609121603';
+} from '../js/lib/rules.js?v=202609121609';
+import { Store } from '../js/lib/store.js?v=202609121609';
+import { fromBase64, toBase64 } from '../js/lib/github.js?v=202609121609';
+import { delegate } from '../js/lib/dom.js?v=202609121609';
+import { date as formatDate, dateTime as formatDateTime, normalizeMonth } from '../js/lib/format.js?v=202609121609';
+import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202609121609';
 
 const tx = (id, type, date, extra = {}) => ({ id, type, trade_date: date, ...extra });
 
@@ -1029,6 +1029,66 @@ describe('銘柄ごとのナンピン判定', () => {
     expect(view.averaging.next.round).toBe(3);
     // 基準は 1 回目の 1,000 円のまま。平均取得単価(890 円)ではない
     expect(view.averaging.base_price).toBe(1000);
+  });
+
+  it('ロットごとに別の基準で判定する', () => {
+    // 1,000 円で買ったロットと、600 円で買い始めたロット
+    const { store, stock, position } = setup(1000, 700);
+    const second = store.createPosition({ stock_id: stock.id, label: 'NISA' });
+    store.createTransaction({
+      position_id: second.id, type: 'BUY', trade_date: '2025-08', shares: 10, price: 600,
+    });
+    const view = getStockView(store, stock.id);
+    const byLabel = Object.fromEntries(view.positions.map((p) => [p.label || '既定', p.averaging]));
+    expect(byLabel['既定'].base_price).toBe(1000);
+    expect(byLabel['既定'].steps[0].target_price).toBe(800);
+    expect(byLabel['既定'].actionable).toBe(true);      // 700 は 800 以下
+    expect(byLabel.NISA.base_price).toBe(600);
+    expect(byLabel.NISA.steps[0].target_price).toBe(480);
+    expect(byLabel.NISA.actionable).toBe(false);        // 700 はまだ 480 より上
+  });
+
+  it('銘柄としては買い時のロットを代表にする', () => {
+    const { store, stock, position } = setup(1000, 700);
+    const second = store.createPosition({ stock_id: stock.id, label: 'NISA' });
+    store.createTransaction({
+      position_id: second.id, type: 'BUY', trade_date: '2025-08', shares: 10, price: 600,
+    });
+    const view = getStockView(store, stock.id);
+    expect(view.averaging.actionable).toBe(true);
+    expect(view.averaging.position_id).toBe(position.id);
+    expect(view.averaging.position_label).toBe('既定のロット');
+  });
+
+  it('ロットごとに買った回数を数える', () => {
+    const { store, stock, position } = setup(1000, 700);
+    store.createTransaction({
+      position_id: position.id, type: 'BUY', trade_date: '2025-06', shares: 10, price: 780,
+    });
+    const second = store.createPosition({ stock_id: stock.id, label: 'NISA' });
+    store.createTransaction({
+      position_id: second.id, type: 'BUY', trade_date: '2025-08', shares: 10, price: 600,
+    });
+    const view = getStockView(store, stock.id);
+    const byLabel = Object.fromEntries(view.positions.map((p) => [p.label || '既定', p.averaging]));
+    expect(byLabel['既定'].buy_count).toBe(2);
+    expect(byLabel['既定'].next.round).toBe(3);
+    expect(byLabel.NISA.buy_count).toBe(1);             // 別ロットは 1 回目から
+    expect(byLabel.NISA.next.round).toBe(2);
+  });
+
+  it('分割で切り出したロットは、もとのロットと同じ基準を引き継ぐ', () => {
+    const { store, stock, position } = setup(2689, 841);
+    const { position: created } = store.splitPosition(position.id,
+      { trade_date: '2026-09', split_from: 2, split_to: 6 });
+    const view = getStockView(store, stock.id);
+    const origin = view.positions.find((p) => p.id === position.id);
+    const moved = view.positions.find((p) => p.id === created.id);
+    expect(origin.averaging.base_price).toBeCloseTo(896.3333, 3);
+    expect(moved.averaging.base_price).toBeCloseTo(896.3333, 3);
+    // 買付の記録が無いロットでも、1 回目は済んだものとして扱う
+    expect(moved.averaging.buy_count).toBe(1);
+    expect(moved.averaging.next.round).toBe(2);
   });
 
   it('下落率の設定を変えると目安も変わる', () => {

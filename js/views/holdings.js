@@ -1,19 +1,19 @@
 // 保有一覧: 並べ替え・絞り込みができる銘柄テーブル。
 
-import { api } from '../lib/api.js?v=202609121744';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609121744';
-import { stockForm } from '../lib/forms.js?v=202609121744';
-import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609121744';
+import { api } from '../lib/api.js?v=202609121748';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609121748';
+import { stockForm } from '../lib/forms.js?v=202609121748';
+import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609121748';
 
 const COLUMNS = [
   { key: 'code', label: 'コード', sort: (a, b) => a.code.localeCompare(b.code) },
   { key: 'name', label: '銘柄', sort: (a, b) => a.name.localeCompare(b.name, 'ja') },
   { key: 'sector', label: 'セクター', sort: (a, b) => (a.sector || '').localeCompare(b.sector || '', 'ja') },
+  // 現在値と、その隣に見比べるナンピンの目安を先頭に置く
+  { key: 'market_price', label: '現在値', num: true },
+  { key: 'next_buy_price', label: 'ナンピン', num: true },
   { key: 'shares', label: '株数', num: true },
   { key: 'avg_price', label: '平均取得', num: true },
-  { key: 'market_price', label: '現在値', num: true },
-  // 現在値と見比べるものなので隣に置く
-  { key: 'next_buy_price', label: 'ナンピン', num: true },
   { key: 'cost', label: '投資額', num: true },
   { key: 'unrealized_pl', label: '含み損益', num: true },
   { key: 'annual_dividend', label: '年間配当', num: true },

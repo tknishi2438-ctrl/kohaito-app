@@ -825,8 +825,32 @@ table.data td.cell-note {
   color: var(--text-2);
   margin-bottom: 16px;
 }
-.notice b { color: var(--gold); font-weight: 500; }
+.notice b { color: var(--gold); font-weight: 700; }
 .notice .btn { align-self: flex-start; }
+/* 1 件ずつ頭に印を付けて、拾い読みできるようにする */
+.notice-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.notice-list li {
+  position: relative;
+  padding-left: 23px;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.5;
+  color: var(--text-1);
+}
+.notice-list li::before {
+  content: "✅";
+  position: absolute;
+  left: 0;
+  top: 0;
+  font-size: 12px;
+}
 .notice-title {
   margin: 0;
   font-size: 12px;

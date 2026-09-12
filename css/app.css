@@ -492,6 +492,13 @@ table.data td.cell-note {
 .rule-limit { font-size: 11px; color: var(--text-3); }
 .rule-head .btn { margin-left: auto; }
 .rule-verdict { margin: 0 0 14px; font-size: 13px; color: var(--text-2); }
+/* 買い時の知らせだけは、開いてすぐ目に入るように大きく */
+.rule-verdict.buy-alert {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-1);
+}
+.rule-verdict.buy-alert .badge { font-size: 12px; vertical-align: 2px; margin-right: 4px; }
 
 /* 構成比 + 上限ラインの横棒 */
 .limit-bars { position: relative; }

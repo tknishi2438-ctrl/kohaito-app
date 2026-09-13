@@ -1,9 +1,9 @@
 // 銘柄一覧: 保有中の銘柄と購入候補を、並べ替え・絞り込みしながら見る。
 
-import { api } from '../lib/api.js?v=202609131131';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609131131';
-import { stockForm } from '../lib/forms.js?v=202609131131';
-import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609131131';
+import { api } from '../lib/api.js?v=202609131403';
+import { delegate, esc, toast } from '../lib/dom.js?v=202609131403';
+import { stockForm } from '../lib/forms.js?v=202609131403';
+import { classification, pct, shares, signClass, yen } from '../lib/format.js?v=202609131403';
 
 const COLUMNS = [
   { key: 'code', label: 'コード', sort: (a, b) => a.code.localeCompare(b.code) },
@@ -60,7 +60,7 @@ const state = {
   sortKey: 'code',
   sortDir: 1,
   search: '',
-  filter: 'held',   // held | candidate | all | k | d | buy
+  filter: 'held',   // held | ordered | candidate | all | k | d | buy
   detail: false,    // 株数より後ろの列を出すか
 };
 
@@ -83,6 +83,8 @@ function cellHtml(view, key) {
         <span class="site-mark" data-action="open-site" data-id="${view.id}"
               title="${view.website ? '企業サイトを開く' : '企業サイトを検索する'}"
               role="button">HP</span>
+        ${view.order ? `<span class="badge order" title="${view.order.price
+    ? `指値 ${yen(view.order.price)}` : '成行'}${view.order.shares ? ` × ${view.order.shares}株` : ''}">注文中</span>` : ''}
         ${view.status === 'candidate' ? '<span class="badge">購入候補</span>' : ''}
         ${view.status === 'sold' ? '<span class="badge">売却済み</span>' : ''}
         ${view.position_count > 1 ? `<span class="badge warn">${view.position_count}ロット</span>` : ''}
@@ -138,13 +140,15 @@ function cellHtml(view, key) {
 function filterButtons(views) {
   const counts = {
     held: views.filter((v) => v.status === 'held').length,
+    // 買い増しの注文も含め、注文を出している銘柄をすべて数える
+    ordered: views.filter((v) => v.order).length,
     candidate: views.filter((v) => v.status === 'candidate').length,
     all: views.length,
     k: views.filter((v) => v.classification === 'K').length,
     d: views.filter((v) => v.classification === 'D').length,
     buy: views.filter((v) => v.averaging?.actionable).length,
   };
-  return [['held', '保有中'], ['candidate', '購入候補'], ['all', 'すべて'],
+  return [['held', '保有中'], ['ordered', '注文中'], ['candidate', '購入候補'], ['all', 'すべて'],
     ['k', '景気敏感'], ['d', 'ディフェンシブ'], ['buy', '買い時']]
     .map(([key, label]) => `
       <button data-action="filter" data-value="${key}"
@@ -158,6 +162,7 @@ function apply(views) {
   const term = state.search.trim().toLowerCase();
   let rows = views.filter((v) => {
     if (state.filter === 'held' && v.status !== 'held') return false;
+    if (state.filter === 'ordered' && !v.order) return false;
     if (state.filter === 'candidate' && v.status !== 'candidate') return false;
     if (state.filter === 'k' && v.classification !== 'K') return false;
     if (state.filter === 'd' && v.classification !== 'D') return false;

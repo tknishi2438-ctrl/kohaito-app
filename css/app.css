@@ -753,6 +753,29 @@ table.data td.cell-note {
 .data th.detail-col,
 .data td.detail-col { background: var(--detail-col); }
 
+/* 注文中。保有(緑)とも候補(無地)とも違う、青で見分ける */
+.badge.order { color: var(--blue); border-color: var(--blue); background: transparent; font-weight: 700; }
+
+/* 銘柄詳細の注文欄 */
+.order-panel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  margin: 0 0 16px;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--blue);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-size: 13px;
+}
+.order-panel.idle { border-left-color: var(--border-strong); background: transparent; }
+.order-panel.reached { border-left-color: var(--green); }
+.order-detail { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: 4px 6px; }
+.order-detail b { font-family: var(--mono); color: var(--text-1); }
+.order-hint { color: var(--green); font-weight: 700; }
+
 /* 銘柄名の後ろに置く、企業サイトへの入口 */
 .site-mark {
   display: inline-block;

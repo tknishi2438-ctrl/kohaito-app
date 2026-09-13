@@ -1,19 +1,19 @@
 // 計算ロジックのテスト。Python 版 tests/test_models.py・test_repository.py の移植。
 
-import { describe, it, expect } from './runner.js?v=202609131131';
+import { describe, it, expect } from './runner.js?v=202609131403';
 import {
   aggregate, computePosition, dividendMonths, evaluate, firstBuy, LedgerError, previewSplit,
-} from '../js/lib/models.js?v=202609131131';
+} from '../js/lib/models.js?v=202609131403';
 import {
   classifyBySector, evaluateDefensive, evaluateSectors, evaluateStockDividends,
   headroom, planAveraging,
-} from '../js/lib/rules.js?v=202609131131';
-import { Store } from '../js/lib/store.js?v=202609131131';
-import { fromBase64, toBase64 } from '../js/lib/github.js?v=202609131131';
-import { delegate } from '../js/lib/dom.js?v=202609131131';
-import { judgeMetric, scoreVerdicts, trendPct } from '../js/lib/metrics.js?v=202609131131';
-import { date as formatDate, dateTime as formatDateTime, normalizeMonth } from '../js/lib/format.js?v=202609131131';
-import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202609131131';
+} from '../js/lib/rules.js?v=202609131403';
+import { Store } from '../js/lib/store.js?v=202609131403';
+import { fromBase64, toBase64 } from '../js/lib/github.js?v=202609131403';
+import { delegate } from '../js/lib/dom.js?v=202609131403';
+import { judgeMetric, scoreVerdicts, trendPct } from '../js/lib/metrics.js?v=202609131403';
+import { date as formatDate, dateTime as formatDateTime, normalizeMonth } from '../js/lib/format.js?v=202609131403';
+import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202609131403';
 
 const tx = (id, type, date, extra = {}) => ({ id, type, trade_date: date, ...extra });
 
@@ -1046,6 +1046,72 @@ describe('保有中・購入候補・売却済みの区別', () => {
       position_id: position.id, type: 'SELL', trade_date: '2025-09', shares: 10, price: 1000,
     });
     expect(getStockView(store, stock.id).status).toBe('sold');
+  });
+
+  it('注文を出すと購入候補から注文中になる', () => {
+    const { store, stock } = setup();
+    store.setOrder(stock.id, { price: 950, shares: 100 });
+    const view = getStockView(store, stock.id);
+    expect(view.status).toBe('ordered');
+    expect(view.order.price).toBe(950);
+    expect(view.order.shares).toBe(100);
+  });
+
+  it('指値や株数は空でも注文中にできる', () => {
+    const { store, stock } = setup();
+    store.setOrder(stock.id, { price: '', shares: '' });
+    const view = getStockView(store, stock.id);
+    expect(view.status).toBe('ordered');
+    expect(view.order.price).toBe(null);
+    expect(view.order.placed_on.length).toBe(10);   // 注文した日を控える
+  });
+
+  it('おかしな指値は受け付けない', () => {
+    const { store, stock } = setup();
+    let failed = false;
+    try {
+      store.setOrder(stock.id, { price: -10 });
+    } catch {
+      failed = true;
+    }
+    expect(failed).toBe(true);
+    expect(store.getStock(stock.id).order ?? null).toBe(null);
+  });
+
+  it('取り消すと購入候補に戻る', () => {
+    const { store, stock } = setup();
+    store.setOrder(stock.id, { price: 950 });
+    store.clearOrder(stock.id);
+    expect(getStockView(store, stock.id).status).toBe('candidate');
+  });
+
+  it('約定を記録して注文を片付けると保有中になる', () => {
+    const { store, stock, position } = setup();
+    store.setOrder(stock.id, { price: 950, shares: 100 });
+    store.createTransaction({
+      position_id: position.id, type: 'BUY', trade_date: '2026-09', shares: 100, price: 950,
+    });
+    store.clearOrder(stock.id);
+    const view = getStockView(store, stock.id);
+    expect(view.status).toBe('held');
+    expect(view.order).toBe(null);
+  });
+
+  it('保有中の銘柄に買い増しの注文を出しても保有中のまま', () => {
+    const { store, stock, position } = setup();
+    store.createTransaction({
+      position_id: position.id, type: 'BUY', trade_date: '2025-04', shares: 10, price: 900,
+    });
+    store.setOrder(stock.id, { price: 800, shares: 10 });
+    const view = getStockView(store, stock.id);
+    expect(view.status).toBe('held');
+    expect(view.order.price).toBe(800);   // 注文を出していることは別に分かる
+  });
+
+  it('注文中は保有していないので集計に入らない', () => {
+    const { store, stock } = setup();
+    store.setOrder(stock.id, { price: 950, shares: 100 });
+    expect(dashboard(store).summary.total_cost).toBe(0);
   });
 
   it('購入候補は集計に影響しない', () => {

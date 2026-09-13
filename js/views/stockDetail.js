@@ -1,11 +1,11 @@
 // 銘柄詳細: ロットごとの取引台帳と、IRBANK 由来の配当・営業利益の推移。
 
-import { api } from '../lib/api.js?v=202609131131';
-import * as charts from '../lib/charts.js?v=202609131131';
-import { delegate, esc, toast } from '../lib/dom.js?v=202609131131';
-import { confirmDelete, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609131131';
-import { dividendJudgeRows, judgeMetric, STATUS_LABEL } from '../lib/metrics.js?v=202609131131';
-import { classification, date, dateTime, fullDate, lotName, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609131131';
+import { api } from '../lib/api.js?v=202609131403';
+import * as charts from '../lib/charts.js?v=202609131403';
+import { confirmDialog, delegate, esc, toast } from '../lib/dom.js?v=202609131403';
+import { confirmDelete, orderForm, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609131403';
+import { dividendJudgeRows, judgeMetric, STATUS_LABEL } from '../lib/metrics.js?v=202609131403';
+import { classification, date, dateTime, fullDate, lotName, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609131403';
 
 const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
@@ -235,6 +235,61 @@ function metricCharts(stock) {
     .join('');
 }
 
+/**
+ * 利回りの欄。持っている銘柄は平均取得単価で、まだ持っていない銘柄は
+ * これから買う値段(注文の指値、無ければ現在値)で出す。
+ */
+function yieldCell(stock, m) {
+  const cell = (value, note) => `
+    <p class="summary-value teal">${value ? pct(value) : '—'}</p>
+    <p class="summary-sub">${note}</p>`;
+  if (stock.status === 'held' || stock.status === 'sold') {
+    return cell(m.yield_on_cost, '平均取得単価ベース');
+  }
+  const dps = stock.dividend_per_share;
+  if (stock.order?.price && dps) {
+    return cell((dps / stock.order.price) * 100, `指値 ${yen(stock.order.price)} で買った場合`);
+  }
+  return cell(m.current_yield, '現在値で買った場合');
+}
+
+/**
+ * 買い注文の欄。注文を出していなければ「注文中にする」だけを出す。
+ * 出していれば、指値・株数と、約定したとき・取り消したときの操作を出す。
+ */
+function orderPanel(stock) {
+  const order = stock.order;
+  if (!order) {
+    return `
+      <div class="order-panel idle">
+        <span class="muted">証券会社で買い注文を出したら</span>
+        <button class="btn btn-sm" data-action="set-order">注文中にする</button>
+      </div>`;
+  }
+  // 指値と現在値の開き。指値以下まで下がっていれば、約定しているかもしれない
+  const gap = order.price && stock.market_price
+    ? ((stock.market_price / order.price) - 1) * 100 : null;
+  const reached = gap !== null && gap <= 0;
+  return `
+    <div class="order-panel${reached ? ' reached' : ''}">
+      <span class="badge order verdict-mark">注文中</span>
+      <span class="order-detail">
+        ${order.price ? `指値 <b>${yen(order.price)}</b>` : '<b>成行</b>'}
+        ${order.shares ? ` × <b>${shares(order.shares)} 株</b>` : ''}
+        <span class="muted">· ${esc(order.placed_on.replaceAll('-', '/'))} から</span>
+        ${gap === null ? ''
+    : reached ? '<span class="order-hint">現在値が指値に届いています。約定していませんか</span>'
+      : `<span class="muted">· 現在値まで ${pct(gap, { digits: 1 })}</span>`}
+        ${order.note ? `<span class="muted">· ${esc(order.note)}</span>` : ''}
+      </span>
+      <span class="row-actions" style="margin-left:auto">
+        <button class="btn btn-sm btn-primary" data-action="fill-order">約定した</button>
+        <button class="btn btn-sm btn-ghost" data-action="set-order">編集</button>
+        <button class="btn btn-sm btn-danger" data-action="cancel-order">取り消す</button>
+      </span>
+    </div>`;
+}
+
 /** 合計点。満点に対する割合で色を変える。 */
 function scoreChip(stock) {
   const score = stock.score;
@@ -277,6 +332,8 @@ export async function render(root, { navigate, params }) {
     ? '<span class="badge" style="vertical-align:middle;margin-left:8px">購入候補</span>' : ''}
           ${stock.status === 'sold'
     ? '<span class="badge" style="vertical-align:middle;margin-left:8px">売却済み</span>' : ''}
+          ${stock.order
+    ? '<span class="badge order" style="vertical-align:middle;margin-left:8px">注文中</span>' : ''}
         </h2>
         <p class="detail-meta">
           ${esc(stock.code)} · ${esc(classification(stock.classification).label)}
@@ -298,6 +355,8 @@ export async function render(root, { navigate, params }) {
         <button class="btn btn-sm btn-danger" data-action="delete-stock">削除</button>
       </div>
     </div>
+
+    ${orderPanel(stock)}
 
     <div class="summary">
       <div class="summary-cell">
@@ -330,12 +389,7 @@ export async function render(root, { navigate, params }) {
       </div>
       <div class="summary-cell">
         <p class="summary-label">利回り</p>
-        ${stock.status === 'candidate'
-    // まだ買っていない銘柄に取得単価は無い。今の株価で買った場合の利回りを出す
-    ? `<p class="summary-value teal">${m.current_yield ? pct(m.current_yield) : '—'}</p>
-       <p class="summary-sub">現在値で買った場合</p>`
-    : `<p class="summary-value teal">${m.yield_on_cost ? pct(m.yield_on_cost) : '—'}</p>
-       <p class="summary-sub">平均取得単価ベース</p>`}
+        ${yieldCell(stock, m)}
       </div>
     </div>
 
@@ -367,6 +421,35 @@ export async function render(root, { navigate, params }) {
   delegate(root, 'click', {
     back: () => navigate('holdings'),
     'edit-stock': () => stockForm(stock, reload),
+    'set-order': () => orderForm(stock, reload),
+    'cancel-order': () => confirmDialog({
+      title: '注文を取り消す',
+      message: `${esc(stock.name)} の注文の記録を消します。<br>証券会社側の注文は、そちらで取り消してください。`,
+      confirmLabel: '取り消す',
+    }).then(async (ok) => {
+      if (!ok) return;
+      await api.clearOrder(stock.id);
+      toast('注文を取り消しました', 'success');
+      reload();
+    }),
+    // 約定したら買付を記録する。注文の株数・指値を下書きにし、保存できたら注文を片付ける
+    'fill-order': () => {
+      const order = stock.order;
+      const position = stock.positions[0];
+      if (!position) {
+        toast('ロットがありません。先に「+ ロットを追加」してください', 'error');
+        return;
+      }
+      transactionForm(null, position.id, reload, {
+        transactions: (stock.transactions || []).filter((t) => t.position_id === position.id),
+        positionLabel: lotName(position, 0),
+        nextLotLabel: `ロット${stock.positions.length + 1}(分割)`,
+        defaultType: 'BUY',
+        prefill: { shares: order.shares, price: order.price },
+        afterCreate: () => api.clearOrder(stock.id, '約定を記録'),
+        afterCreateMessage: '買付を記録し、注文を片付けました',
+      });
+    },
     'delete-stock': () => confirmDelete('銘柄', `${stock.code} ${stock.name}`, async () => {
       await api.deleteStock(stock.id);
       navigate('holdings');

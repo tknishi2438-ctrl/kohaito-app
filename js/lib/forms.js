@@ -1,10 +1,10 @@
 // 銘柄・ポジション・取引の入力フォーム(モーダル)をまとめたモジュール。
 
-import { api } from './api.js?v=202609131131';
-import { confirmDialog, esc, modal, qs, toast } from './dom.js?v=202609131131';
-import { normalizeMonth, shares as fmtShares, thisMonth, TX_LABEL, yen, yenPrecise } from './format.js?v=202609131131';
-import { previewSplit } from './models.js?v=202609131131';
-import { classifyBySector } from './rules.js?v=202609131131';
+import { api } from './api.js?v=202609131403';
+import { confirmDialog, esc, modal, qs, toast } from './dom.js?v=202609131403';
+import { normalizeMonth, shares as fmtShares, thisMonth, TX_LABEL, yen, yenPrecise } from './format.js?v=202609131403';
+import { previewSplit } from './models.js?v=202609131403';
+import { classifyBySector } from './rules.js?v=202609131403';
 
 const CLASSIFICATIONS = [
   ['AUTO', 'おまかせ — セクターから決める'],
@@ -164,6 +164,36 @@ async function populateSectors() {
   } catch { /* 補完候補は無くても入力できるので黙って諦める */ }
 }
 
+// -------------------------------------------------------------- 注文フォーム
+
+/** 証券会社に出した買い注文を記録する。指値・株数は分からなければ空でよい。 */
+export function orderForm(stock, onDone) {
+  const order = stock.order;
+  modal({
+    title: order ? '注文を編集' : `${stock.name} を注文中にする`,
+    submitLabel: order ? '保存する' : '注文中にする',
+    body: `
+      <div class="field-row">
+        ${field('指値 (円)', numberInput('price', order?.price ?? '', 'min="0"'),
+    stock.market_price ? `現在値 ${yen(stock.market_price)}` : '成行なら空のままで構いません。')}
+        ${field('株数', numberInput('shares', order?.shares ?? '', 'min="0"'))}
+      </div>
+      ${field('メモ', input('note', order?.note, 'placeholder="NISA枠 / 今週末まで など"'))}
+      <p class="hint" style="margin:0">
+        約定したら「約定した」を押すと、この株数と指値を下書きにして買付を記録できます。
+      </p>`,
+    onSubmit: async (data) => {
+      await api.setOrder(stock.id, {
+        price: data.price,
+        shares: data.shares,
+        note: data.note.trim(),
+      });
+      toast(order ? '注文を保存しました' : `${stock.name} を注文中にしました`, 'success');
+      onDone?.();
+    },
+  });
+}
+
 // ---------------------------------------------------------- ポジションフォーム
 
 export function positionForm(position, stockId, onDone) {
@@ -256,10 +286,12 @@ export function transactionForm(tx, positionId, onDone, context = null) {
   // 新規の分割のときだけ、実行後の姿を出す(編集ではロットの分かれ方は変わらない)
   const canPreview = isNew && Boolean(context?.transactions);
 
+  // 注文が約定したときは、注文の株数と指値を下書きとして入れておく
+  const prefill = context?.prefill ?? {};
   const tradeFields = `
     <div class="field-row three">
-      ${field('株数', numberInput('shares', tx?.shares || '', 'min="0" required'))}
-      ${field('約定単価 (円)', numberInput('price', tx?.price || '', 'min="0" required'))}
+      ${field('株数', numberInput('shares', tx?.shares || prefill.shares || '', 'min="0" required'))}
+      ${field('約定単価 (円)', numberInput('price', tx?.price || prefill.price || '', 'min="0" required'))}
       ${field('手数料 (円)', numberInput('fee', tx?.fee || 0, 'min="0"'))}
     </div>`;
 
@@ -369,9 +401,15 @@ export function transactionForm(tx, positionId, onDone, context = null) {
         onDone?.();
         return;
       }
-      if (isNew) await api.createTransaction({ ...payload, position_id: positionId });
-      else await api.updateTransaction(tx.id, payload);
-      toast(isNew ? '取引を追加しました' : '保存しました', 'success');
+      if (isNew) {
+        await api.createTransaction({ ...payload, position_id: positionId });
+        // 約定の記録なら、ここで注文を片付ける(取引の保存に成功してから)
+        await context?.afterCreate?.();
+      } else {
+        await api.updateTransaction(tx.id, payload);
+      }
+      toast(context?.afterCreateMessage && isNew ? context.afterCreateMessage
+        : isNew ? '取引を追加しました' : '保存しました', 'success');
       onDone?.();
     },
   });

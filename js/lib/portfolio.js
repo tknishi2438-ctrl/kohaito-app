@@ -3,12 +3,12 @@
 
 import {
   aggregate, computePosition, dividendMonths, EPSILON, evaluate, firstBuy, sortTransactions,
-} from './models.js?v=202609131131';
+} from './models.js?v=202609131403';
 import {
   evaluateDefensive, evaluateSectors, evaluateStockDividends, planAveraging,
-} from './rules.js?v=202609131131';
-import { lotName } from './format.js?v=202609131131';
-import { scoreStock } from './metrics.js?v=202609131131';
+} from './rules.js?v=202609131403';
+import { lotName } from './format.js?v=202609131403';
+import { scoreStock } from './metrics.js?v=202609131403';
 
 function round(value, digits) {
   const f = 10 ** digits;
@@ -77,11 +77,16 @@ function leadingLot(positions) {
 /**
  * 銘柄の状態。
  * - held      : いま持っている
+ * - ordered   : 持っていないが、買い注文を出している
  * - candidate : まだ一度も買っていない(購入候補)
  * - sold      : 買ったが売り切った
+ *
+ * 持っている銘柄に買い増しの注文を出していても held のまま。
+ * 注文を出していることは、状態とは別に order の有無で分かる。
  */
-function stockStatus(rolled) {
+function stockStatus(rolled, stock) {
   if (rolled.shares > EPSILON) return 'held';
+  if (stock.order) return 'ordered';
   return rolled.buy_count > 0 ? 'sold' : 'candidate';
 }
 
@@ -112,7 +117,7 @@ function buildStockView(stock, positions, settings = {}, histories = {}) {
     positions,
     position_count: positions.length,
     // 一度も買っていない銘柄は購入候補。売り切った銘柄とは区別する
-    status: stockStatus(rolled),
+    status: stockStatus(rolled, stock),
     // 高配当株としての適正。銘柄詳細で出す判定と同じ計算
     score: scoreStock(histories.profits || [], histories.dividends || []),
     // 銘柄としては、いちばん買い時に近いロットを代表として見せる

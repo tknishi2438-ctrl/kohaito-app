@@ -5,13 +5,13 @@
 
 import {
   computePosition, LedgerError, previewSplit, TX_TYPES, SPLIT, MOVE_IN, MOVE_OUT,
-} from './models.js?v=202609131131';
-import { lotName, normalizeMonth } from './format.js?v=202609131131';
+} from './models.js?v=202609131403';
+import { lotName, normalizeMonth } from './format.js?v=202609131403';
 import {
   classifyBySector,
   DEFAULT_MAX_SECTOR_PCT, DEFAULT_MAX_STOCK_DIVIDEND_PCT, DEFAULT_MIN_DEFENSIVE_PCT,
   DEFAULT_SECOND_BUY_DROP_PCT, DEFAULT_THIRD_BUY_DROP_PCT,
-} from './rules.js?v=202609131131';
+} from './rules.js?v=202609131403';
 
 export const FORMAT = 'khk-portfolio';
 export const VERSION = 2;
@@ -63,6 +63,13 @@ export function normalize(raw) {
     dividend_history: raw.dividend_history || [],
     profit_history: raw.profit_history || [],
   };
+}
+
+/** 今日の日付(YYYY-MM-DD)。手元の時刻で。 */
+function today() {
+  const at = new Date();
+  const p = (n) => String(n).padStart(2, '0');
+  return `${at.getFullYear()}-${p(at.getMonth() + 1)}-${p(at.getDate())}`;
 }
 
 /**
@@ -244,6 +251,35 @@ export class Store {
       // おまかせのままセクターを直したら、判定もやり直す
       Object.assign(stock, resolveClassification('AUTO', stock.sector));
     }
+    stock.updated_at = nowIso();
+    return stock;
+  }
+
+  /**
+   * 証券会社に出している買い注文を記録する。
+   * 取引の記録(約定したもの)とは別に持つ。まだ株は増えていないため。
+   * 指値・株数は分からなければ空でよい。
+   */
+  setOrder(id, data = {}) {
+    const stock = this.getStock(id);
+    const price = data.price === '' || data.price == null ? null : Number(data.price);
+    const shares = data.shares === '' || data.shares == null ? null : Number(data.shares);
+    if (price !== null && !(price > 0)) throw new Invalid('指値は 0 より大きい数で入力してください');
+    if (shares !== null && !(shares > 0)) throw new Invalid('株数は 1 以上で入力してください');
+    stock.order = {
+      price,
+      shares,
+      placed_on: String(data.placed_on || stock.order?.placed_on || today()),
+      note: String(data.note || ''),
+    };
+    stock.updated_at = nowIso();
+    return stock;
+  }
+
+  /** 注文を取り消した、または約定して取引に記録したとき。 */
+  clearOrder(id) {
+    const stock = this.getStock(id);
+    stock.order = null;
     stock.updated_at = nowIso();
     return stock;
   }

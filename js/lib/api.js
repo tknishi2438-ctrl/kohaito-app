@@ -4,10 +4,10 @@
 // 中身をブラウザ内の計算 + GitHub への保存に置き換えている。
 // 書き込みのたびに保存し、失敗したら画面に伝える。
 
-import { Store } from './store.js?v=202609131131';
-import * as portfolioLib from './portfolio.js?v=202609131131';
-import * as portability from './portability.js?v=202609131131';
-import { Persistence, RemoteChanged } from './persist.js?v=202609131131';
+import { Store } from './store.js?v=202609131403';
+import * as portfolioLib from './portfolio.js?v=202609131403';
+import * as portability from './portability.js?v=202609131403';
+import { Persistence, RemoteChanged } from './persist.js?v=202609131403';
 
 const store = new Store();
 const persistence = new Persistence();
@@ -85,6 +85,16 @@ export const api = {
   updateStock: async (id, data) => {
     const stock = store.updateStock(id, data);
     await persist(`銘柄を更新: ${stock.code} ${stock.name}`);
+    return stock;
+  },
+  setOrder: async (id, data) => {
+    const stock = store.setOrder(id, data);
+    await persist(`注文中にする: ${stock.code} ${stock.name}`);
+    return stock;
+  },
+  clearOrder: async (id, reason = '注文を取り消す') => {
+    const stock = store.clearOrder(id);
+    await persist(`${reason}: ${stock.code} ${stock.name}`);
     return stock;
   },
   deleteStock: async (id) => {

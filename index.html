@@ -1,15 +1,24 @@
 <!doctype html>
 <html lang="ja">
 <head>
-  <meta name="app-version" content="202609130048">
+  <meta name="app-version" content="202609131101">
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="color-scheme" content="dark light">
-  <title>高配当株ポートフォリオ</title>
+  <title>金のニワトリ小屋</title>
+  <!-- ホーム画面に置いたときの名前とアイコン(sync/make_icon.py が描く) -->
+  <meta name="application-name" content="金のニワトリ小屋">
+  <meta name="apple-mobile-web-app-title" content="金のニワトリ小屋">
+  <meta name="theme-color" content="#f4f1ec">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="64x64" href="./icons/favicon-64.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="./icons/favicon-16.png">
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="./css/app.css?v=202609130048">
+  <link rel="stylesheet" href="./css/app.css?v=202609131101">
   <script>
     // 画面の描画前にテーマを確定させ、読み込み時のちらつきを防ぐ
     try {
@@ -19,13 +28,15 @@
       document.documentElement.dataset.theme = 'light';
     }
   </script>
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>📈</text></svg>">
 </head>
 <body>
   <div id="app" class="app">
     <header class="topbar">
       <div class="topbar-brand">
-        <h1 class="brand-title">高配当株ポートフォリオ</h1>
+        <h1 class="brand-title">
+          <img class="brand-icon" src="./icons/favicon-64.png" alt="" width="30" height="30">
+          金のニワトリ小屋
+        </h1>
         <p class="brand-sub" id="brandSub">読み込み中…</p>
       </div>
       <div class="topbar-right">
@@ -51,6 +62,6 @@
   <div class="modal-root" id="modalRoot" hidden></div>
   <div class="toasts" id="toasts"></div>
 
-  <script type="module" src="./js/app.js?v=202609130048"></script>
+  <script type="module" src="./js/app.js?v=202609131101"></script>
 </body>
 </html>

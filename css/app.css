@@ -170,12 +170,16 @@ body {
 }
 
 .brand-title {
+  display: flex;
+  align-items: center;
+  gap: 9px;
   margin: 0;
   font-family: var(--display);
   font-size: 20px;
   font-weight: 900;
   letter-spacing: .02em;
 }
+.brand-icon { width: 30px; height: 30px; border-radius: 7px; flex: none; }
 
 .brand-sub {
   margin: 2px 0 0;

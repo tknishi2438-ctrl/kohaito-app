@@ -8,9 +8,13 @@ export function current() {
   return document.documentElement.dataset.theme === DARK ? DARK : LIGHT;
 }
 
+// スマホのブラウザ上部の色。画面の地色と揃える(app.css の --ink)
+const BAR_COLOR = { [LIGHT]: '#f4f1ec', [DARK]: '#0d1730' };
+
 export function apply(theme) {
   const next = theme === DARK ? DARK : LIGHT;
   document.documentElement.dataset.theme = next;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', BAR_COLOR[next]);
   try {
     localStorage.setItem(KEY, next);
   } catch {

@@ -179,7 +179,8 @@ body {
   font-weight: 900;
   letter-spacing: .02em;
 }
-.brand-icon { width: 30px; height: 30px; border-radius: 7px; flex: none; }
+/* 描き込みのある絵なので、小さすぎると表情がつぶれる */
+.brand-icon { width: 40px; height: 40px; border-radius: 9px; flex: none; }
 
 .brand-sub {
   margin: 2px 0 0;

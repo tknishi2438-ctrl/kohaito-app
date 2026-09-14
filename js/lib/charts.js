@@ -1,7 +1,7 @@
 // 外部ライブラリを使わない SVG グラフ。配色は CSS 変数から読むため、
 // 明暗テーマの切り替えにそのまま追従する。
 
-import { esc } from './dom.js?v=202609131403';
+import { esc } from './dom.js?v=202609142241';
 
 const PALETTE_SIZE = 12;
 const FALLBACK = '#8a6a17';
@@ -66,8 +66,11 @@ export function limitBars(items, { limit = 20, scaleMax = null, limitLabel = '�
         </span>
         <span class="limit-note num muted">${esc(item.note ?? '')}</span>
       </div>`).join('')}
-    <div class="limit-legend">
-      <span class="limit-legend-mark"></span>${esc(limitLabel)} ${limit}%
+    <div class="limit-row limit-legend-row">
+      <span></span>
+      <span class="limit-axis">
+        <span class="limit-legend">${esc(limitLabel)} ${limit}%</span>
+      </span>
     </div>
   </div>`;
 }

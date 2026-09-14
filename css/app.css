@@ -558,19 +558,27 @@ table.data td.cell-note {
 }
 .limit-value { text-align: right; }
 .limit-note { text-align: right; font-size: 11px; }
+/* 基準線の呼び名は、線の真下に置く */
+.limit-legend-row { margin: -2px 0 0; }
+.limit-axis { position: relative; height: 26px; }
 .limit-legend {
+  position: absolute;
+  top: 0;
+  left: var(--limit-pos);
+  transform: translateX(-50%);
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 7px;
-  margin-top: 10px;
+  white-space: nowrap;
   font-size: 11px;
-  color: var(--text-3);
+  font-weight: 600;
+  line-height: 1.2;
+  color: var(--text-2);
 }
-.limit-legend-mark {
-  display: inline-block;
-  width: 0;
-  height: 11px;
-  border-left: 2px dashed var(--text-3);
+.limit-legend::before {
+  content: '▲';
+  font-size: 7px;
+  color: var(--text-3);
 }
 
 .donut-wrap { display: flex; gap: 20px; align-items: center; flex-wrap: wrap; }

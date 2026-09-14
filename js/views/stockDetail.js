@@ -1,11 +1,11 @@
 // 銘柄詳細: ロットごとの取引台帳と、IRBANK 由来の配当・営業利益の推移。
 
-import { api } from '../lib/api.js?v=202609131403';
-import * as charts from '../lib/charts.js?v=202609131403';
-import { confirmDialog, delegate, esc, toast } from '../lib/dom.js?v=202609131403';
-import { confirmDelete, orderForm, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609131403';
-import { dividendJudgeRows, judgeMetric, STATUS_LABEL } from '../lib/metrics.js?v=202609131403';
-import { classification, date, dateTime, fullDate, lotName, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609131403';
+import { api } from '../lib/api.js?v=202609142241';
+import * as charts from '../lib/charts.js?v=202609142241';
+import { confirmDialog, delegate, esc, toast } from '../lib/dom.js?v=202609142241';
+import { confirmDelete, orderForm, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609142241';
+import { dividendJudgeRows, judgeMetric, STATUS_LABEL } from '../lib/metrics.js?v=202609142241';
+import { classification, date, dateTime, fullDate, lotName, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609142241';
 
 const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 

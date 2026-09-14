@@ -1,15 +1,16 @@
 // 画面遷移(ハッシュルーティング)と初期化。
 
-import { api, onStatusChange } from './lib/api.js?v=202609142241';
-import { init as initData } from './lib/api.js?v=202609142241';
-import { esc, qs, qsa, toast } from './lib/dom.js?v=202609142241';
-import { ensureLatest } from './lib/freshness.js?v=202609142241';
-import * as theme from './lib/theme.js?v=202609142241';
-import * as dashboard from './views/dashboard.js?v=202609142241';
-import * as holdings from './views/holdings.js?v=202609142241';
-import * as ledger from './views/ledger.js?v=202609142241';
-import * as settings from './views/settings.js?v=202609142241';
-import * as stockDetail from './views/stockDetail.js?v=202609142241';
+import { api, onStatusChange } from './lib/api.js?v=202609142244';
+import { init as initData } from './lib/api.js?v=202609142244';
+import { esc, qs, qsa, toast } from './lib/dom.js?v=202609142244';
+import { dateTime } from './lib/format.js?v=202609142244';
+import { ensureLatest } from './lib/freshness.js?v=202609142244';
+import * as theme from './lib/theme.js?v=202609142244';
+import * as dashboard from './views/dashboard.js?v=202609142244';
+import * as holdings from './views/holdings.js?v=202609142244';
+import * as ledger from './views/ledger.js?v=202609142244';
+import * as settings from './views/settings.js?v=202609142244';
+import * as stockDetail from './views/stockDetail.js?v=202609142244';
 
 const ROUTES = [
   { pattern: /^dashboard$/, tab: 'dashboard', view: dashboard },
@@ -51,10 +52,14 @@ async function refreshBadge() {
     const { counts } = await api.health();
     const status = api.status();
     const label = STORAGE_LABEL[status.mode] || STORAGE_LABEL.local;
+    // 最後に GitHub から読み込んだ、または GitHub へ保存できた日時
+    const syncedAt = status.mode === 'github' && status.last_synced_at
+      ? ` <span class="synced-at">最終同期 ${esc(dateTime(status.last_synced_at))}</span>`
+      : '';
     qs('#brandSub').innerHTML =
       `${counts.stocks} 銘柄 · ${counts.positions} ロット · ${counts.transactions} 取引`
       + ` <span class="storage-chip ${label.cls}" title="${esc(status.repo || '保存先未設定')}">`
-      + `${label.text}${status.pending ? ' · 未保存あり' : ''}</span>`;
+      + `${label.text}${status.pending ? ' · 未保存あり' : ''}</span>${syncedAt}`;
   } catch (err) {
     qs('#brandSub').textContent = `データを読み込めません: ${err.message}`;
   }

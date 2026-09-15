@@ -1,19 +1,19 @@
 // 計算ロジックのテスト。Python 版 tests/test_models.py・test_repository.py の移植。
 
-import { describe, it, expect } from './runner.js?v=202609142244';
+import { describe, it, expect } from './runner.js?v=202609152326';
 import {
   aggregate, computePosition, dividendMonths, evaluate, firstBuy, LedgerError, previewSplit,
-} from '../js/lib/models.js?v=202609142244';
+} from '../js/lib/models.js?v=202609152326';
 import {
   classifyBySector, evaluateDefensive, evaluateSectors, evaluateStockDividends,
   headroom, planAveraging,
-} from '../js/lib/rules.js?v=202609142244';
-import { Store } from '../js/lib/store.js?v=202609142244';
-import { fromBase64, toBase64 } from '../js/lib/github.js?v=202609142244';
-import { delegate } from '../js/lib/dom.js?v=202609142244';
-import { judgeMetric, scoreVerdicts, trendPct } from '../js/lib/metrics.js?v=202609142244';
-import { date as formatDate, dateTime as formatDateTime, normalizeMonth } from '../js/lib/format.js?v=202609142244';
-import { dashboard, getStockView, listStockViews } from '../js/lib/portfolio.js?v=202609142244';
+} from '../js/lib/rules.js?v=202609152326';
+import { Store } from '../js/lib/store.js?v=202609152326';
+import { fromBase64, toBase64 } from '../js/lib/github.js?v=202609152326';
+import { delegate } from '../js/lib/dom.js?v=202609152326';
+import { judgeMetric, scoreVerdicts, trendPct } from '../js/lib/metrics.js?v=202609152326';
+import { date as formatDate, dateTime as formatDateTime, normalizeMonth } from '../js/lib/format.js?v=202609152326';
+import { dashboard, getStockView, latestMarketUpdate, listStockViews } from '../js/lib/portfolio.js?v=202609152326';
 
 const tx = (id, type, date, extra = {}) => ({ id, type, trade_date: date, ...extra });
 
@@ -1687,5 +1687,23 @@ describe('ディフェンシブ株の下限', () => {
   it('不正な下限をはじく', () => {
     const store = new Store();
     expect(() => store.updateSettings({ min_defensive_pct: 101 })).toThrow('0〜100');
+  });
+});
+
+describe('株価・業績データの新しさ', () => {
+  it('いちばん新しい取り込み日時と終値の日付を拾う', () => {
+    const r = latestMarketUpdate([
+      { irbank_synced_at: '2026-09-12T21:59:00', market_price_date: '2026-09-11' },
+      { irbank_synced_at: '2026-09-14T21:50:25', market_price_date: '2026-09-10' },
+      { irbank_synced_at: null, market_price_date: null },
+    ]);
+    expect(r.updated_at).toBe('2026-09-14T21:50:25');
+    expect(r.price_date).toBe('2026-09-11');
+  });
+
+  it('一度も取り込んでいなければ空', () => {
+    const r = latestMarketUpdate([{ code: '1001' }]);
+    expect(r.updated_at).toBeNull();
+    expect(r.price_date).toBeNull();
   });
 });

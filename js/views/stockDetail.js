@@ -1,11 +1,11 @@
 // 銘柄詳細: ロットごとの取引台帳と、IRBANK 由来の配当・営業利益の推移。
 
-import { api } from '../lib/api.js?v=202609142244';
-import * as charts from '../lib/charts.js?v=202609142244';
-import { confirmDialog, delegate, esc, toast } from '../lib/dom.js?v=202609142244';
-import { confirmDelete, orderForm, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609142244';
-import { dividendJudgeRows, judgeMetric, STATUS_LABEL } from '../lib/metrics.js?v=202609142244';
-import { classification, date, dateTime, fullDate, lotName, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609142244';
+import { api } from '../lib/api.js?v=202609152326';
+import * as charts from '../lib/charts.js?v=202609152326';
+import { confirmDialog, delegate, esc, toast } from '../lib/dom.js?v=202609152326';
+import { confirmDelete, orderForm, positionForm, stockForm, transactionForm } from '../lib/forms.js?v=202609152326';
+import { dividendJudgeRows, judgeMetric, STATUS_LABEL } from '../lib/metrics.js?v=202609152326';
+import { classification, date, dateTime, fullDate, lotName, num, pct, shares, signClass, TX_LABEL, yen, yenPrecise } from '../lib/format.js?v=202609152326';
 
 const MONTHS = ['1月', '2月', '3月', '4月', '5月', '6月', '7月', '8月', '9月', '10月', '11月', '12月'];
 
@@ -399,7 +399,7 @@ export async function render(root, { navigate, params }) {
           ${stock.per ? `<div><dt>PER (予)</dt><dd>${num(stock.per)} 倍</dd></div>` : ''}
           ${stock.pbr ? `<div><dt>PBR</dt><dd>${num(stock.pbr)} 倍</dd></div>` : ''}
           ${m.realized_pl ? `<div><dt>実現損益</dt><dd class="${signClass(m.realized_pl)}">${yen(m.realized_pl, { sign: true })}</dd></div>` : ''}
-          ${stock.irbank_synced_at ? `<div><dt>最終同期</dt><dd>${esc(dateTime(stock.irbank_synced_at))}</dd></div>` : ''}
+          ${stock.irbank_synced_at ? `<div><dt>データ更新</dt><dd>${esc(dateTime(stock.irbank_synced_at))}</dd></div>` : ''}
         </dl>
         ${stock.memo ? `<p style="margin:14px 0 0;color:var(--text-2);font-size:13px;white-space:pre-wrap">${esc(stock.memo)}</p>` : ''}
       </div>` : ''}

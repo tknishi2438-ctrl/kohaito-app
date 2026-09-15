@@ -3,12 +3,12 @@
 
 import {
   aggregate, computePosition, dividendMonths, EPSILON, evaluate, firstBuy, sortTransactions,
-} from './models.js?v=202609142244';
+} from './models.js?v=202609152326';
 import {
   evaluateDefensive, evaluateSectors, evaluateStockDividends, planAveraging,
-} from './rules.js?v=202609142244';
-import { lotName } from './format.js?v=202609142244';
-import { scoreStock } from './metrics.js?v=202609142244';
+} from './rules.js?v=202609152326';
+import { lotName } from './format.js?v=202609152326';
+import { scoreStock } from './metrics.js?v=202609152326';
 
 function round(value, digits) {
   const f = 10 ** digits;
@@ -325,4 +325,14 @@ export function dashboard(store) {
       })),
     },
   };
+}
+
+/**
+ * 株価・業績データ(Mac の更新スクリプトが書き込む)の新しさ。
+ * updated_at は最後に取り込んだ日時、price_date はいちばん新しい終値の日付。
+ * どちらも同じ書式の文字列なので、文字列の大小で新旧を比べられる。
+ */
+export function latestMarketUpdate(stocks) {
+  const newest = (key) => stocks.reduce((best, s) => (s[key] && (!best || s[key] > best) ? s[key] : best), null);
+  return { updated_at: newest('irbank_synced_at'), price_date: newest('market_price_date') };
 }
